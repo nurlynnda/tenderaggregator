@@ -146,7 +146,9 @@ Crawling must be polite and resilient to server-side rate limiting:
   present, otherwise waits a longer penalty delay (60s) before retrying, and does not
   count `Retry-After`-honored waits against the 3-attempt budget more than once.
 - A page that still fails after retries aborts **that job** with status `failed` (other
-  jobs / previously completed jobs are unaffected; no partial job dataset is stored).
+  jobs / previously completed jobs are unaffected). Pages already flushed before the
+  failure remain stored — this is safe because upserts are idempotent by id, and it lets
+  an interrupted archive backfill resume without redoing completed work.
 - Identifying `User-Agent` sent on every request.
 
 - **Startup scrape** (first run only, no existing data): runs all 6 jobs — open
