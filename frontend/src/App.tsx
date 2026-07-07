@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
+import DetailPage from './pages/DetailPage';
 import MainPage from './pages/MainPage';
 
 const queryClient = new QueryClient();
@@ -14,6 +15,7 @@ export default function App() {
         <main className="p-6">
           <Routes>
             <Route path="/" element={<MainPage />} />
+            <Route path="/tenders/:id" element={<DetailPage />} />
           </Routes>
         </main>
       </BrowserRouter>
