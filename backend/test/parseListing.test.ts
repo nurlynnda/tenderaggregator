@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { TenderSchema } from '@tms/shared';
 import { parseListingHtml, type JobContext } from '../src/scrapers/myprocurement/parseListing.js';
 
@@ -112,11 +112,14 @@ describe('parseListingHtml — embedded card, exact values', () => {
 
 describe('parseListingHtml — edge cases for branch coverage', () => {
   it('skips a card whose title link has an invalid sourceUrl instead of throwing', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const badUrl = CARD_HTML.replace(
       'href="https://myprocurement.treasury.gov.my/advertisements/quotation/71ebb6ee"',
       'href="/relative/not-a-full-url"',
     );
     expect(parseListingHtml(badUrl, OPEN_Q)).toEqual([]);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[myprocurement] skipping invalid card'));
+    warnSpy.mockRestore();
   });
 
   it('ignores non-card x-data wrappers (e.g. pagination controls)', () => {
