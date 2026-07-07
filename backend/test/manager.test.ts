@@ -94,6 +94,31 @@ describe('ScrapeManager', () => {
     expect(mgr.status().state).toBe('done');
   });
 
+  it('defaults to a small flush interval for open scope and a larger one for archive/all scope', async () => {
+    async function countFlushes(scope: ScrapeScope, pages: number): Promise<number> {
+      const repo = await freshRepo();
+      const originalFlush = repo.flush.bind(repo);
+      let flushCount = 0;
+      repo.flush = async (source: string) => {
+        flushCount += 1;
+        return originalFlush(source);
+      };
+      const adapter = fakeAdapter(async (_s, hooks) => {
+        for (let i = 0; i < pages; i += 1) {
+          await hooks.onBatch([makeTender(i)]);
+        }
+      });
+      const mgr = new ScrapeManager([adapter], repo, { now: NOW });
+      await mgr.runToCompletion(scope);
+      return flushCount;
+    }
+    // 20 pages: open's smaller default interval should flush mid-run more often than
+    // archive's larger default interval (trading redo-window size for fewer full rewrites).
+    const openFlushes = await countFlushes('open', 20);
+    const archiveFlushes = await countFlushes('archive', 20);
+    expect(openFlushes).toBeGreaterThan(archiveFlushes);
+  });
+
   it('sets failed state with error message; keeps previously flushed batches', async () => {
     const repo = await freshRepo();
     const adapter = fakeAdapter(async (_s, hooks) => {

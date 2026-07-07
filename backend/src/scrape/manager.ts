@@ -19,7 +19,14 @@ export class ScrapeManager {
   constructor(
     private readonly adapters: ScraperAdapter[],
     private readonly repo: TenderRepository,
-    private readonly opts: { flushEveryPages?: number; now?: () => string } = {},
+    private readonly opts: {
+      flushEveryPages?: number;
+      /** Overrides flushEveryPages specifically for scope='open' (small, fast-feedback jobs). */
+      flushEveryPagesOpen?: number;
+      /** Overrides flushEveryPages specifically for scope='archive'/'all' (large backfill jobs). */
+      flushEveryPagesArchive?: number;
+      now?: () => string;
+    } = {},
   ) {}
 
   status(): ScrapeStatus {
@@ -37,7 +44,14 @@ export class ScrapeManager {
     this.running = true;
     this.current = { state: 'running' };
     const now = this.opts.now ?? (() => new Date().toISOString());
-    const flushEvery = this.opts.flushEveryPages ?? 10;
+    // Archive/all backfills are ~1280 pages at design scale; flushing the whole in-memory
+    // map every page would make cumulative write bytes scale O(N^2). Flush less often for
+    // large scopes (fewer full rewrites, larger redo window on crash — safe since upserts
+    // are idempotent and archive backfill is resumable). Open scope is small (~58 pages)
+    // and users want fast visible progress, so it keeps a tight interval.
+    const flushEvery =
+      this.opts.flushEveryPages ??
+      (scope === 'open' ? (this.opts.flushEveryPagesOpen ?? 10) : (this.opts.flushEveryPagesArchive ?? 50));
 
     try {
       for (const adapter of this.adapters) {
