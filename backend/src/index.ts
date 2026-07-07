@@ -18,7 +18,7 @@ async function main() {
   // - no data at all           -> full scrape (open + archive backfill)
   // - data but backfill unset  -> resume archive backfill only
   // - otherwise                -> nothing
-  const needsFull = adapters.some((a) => !repo.hasSource(a.name));
+  const needsFull = adapters.every((a) => !repo.hasSource(a.name));
   const needsBackfill = adapters.some((a) => repo.getMeta(a.name).lastArchiveBackfillAt === null);
   if (needsFull) {
     console.log('[startup] no data found — starting full scrape (open + archive backfill)');
