@@ -54,7 +54,7 @@ export function dedupeTenders(tenders: Tender[]): Tender[] {
 }
 
 export function queryTenders(tenders: Tender[], q: TenderQuery, opts: { deduped?: boolean } = {}): TenderPage {
-  let items = opts.deduped ? tenders : dedupeTenders(tenders);
+  let items = opts.deduped ? tenders.slice() : dedupeTenders(tenders);
 
   if (q.search) {
     const needle = q.search.toLowerCase();
