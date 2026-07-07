@@ -79,6 +79,7 @@ Tender = {
   source: string,          // "myprocurement"
   sourceId: string,        // native ID (from the select-procurement dispatch id)
   referenceNo: string,     // No. Sebut Harga
+  dedupKey: string,        // normalized referenceNo (uppercase, whitespace stripped); falls back to id if empty
   title: string,           // HTML entities decoded
   sourceUrl: string,       // official detail page link (basis for future on-demand detail scrape)
   status: "open" | "closed",              // derived from the job's type (advertisements/archive)
@@ -131,10 +132,22 @@ Perunding" vs "Bekalan" vs "Kerja" don't map 1:1 to quotation/tender/requisition
     (Kementerian, Agensi, Kategori Perolehan, Kod Bidang, Tarikh Tutup Pelawaan,
     Harga Indikatif Jabatan), Tarikh Pelawaan badge, and the desktop `<table>` of events.
   - dd/mm/yyyy → ISO; "RM 28,800.00" → 28800; HTML entities decoded.
-  - Politeness: ~300ms between pages; retry w/ backoff, 3 attempts/page; a page that
-    still fails aborts **that job** with status `failed` (other jobs / previously
-    completed jobs are unaffected; no partial job dataset is stored).
   - Each record Zod-validated; invalid records logged and skipped.
+
+### Rate-limiting protection
+
+Crawling must be polite and resilient to server-side rate limiting:
+
+- **Serial crawling, no concurrency** — one request in flight at a time, across all jobs.
+- **Base delay with jitter** between page requests: 300ms + random 0–200ms, configurable
+  via env (`SCRAPE_DELAY_MS`) so it can be tuned without code changes.
+- **Backoff on failure**: retry up to 3 attempts/page with exponential backoff
+  (1s → 4s → 16s). An HTTP 429 or 503 response honors the `Retry-After` header when
+  present, otherwise waits a longer penalty delay (60s) before retrying, and does not
+  count `Retry-After`-honored waits against the 3-attempt budget more than once.
+- A page that still fails after retries aborts **that job** with status `failed` (other
+  jobs / previously completed jobs are unaffected; no partial job dataset is stored).
+- Identifying `User-Agent` sent on every request.
 
 - **Startup scrape** (first run only, no existing data): runs all 6 jobs — open
   (~5,775 records) and archive (~128k records, ~12,789 pages combined). This is a
@@ -153,6 +166,22 @@ Perunding" vs "Bekalan" vs "Kerja" don't map 1:1 to quotation/tender/requisition
 - Repository module: upsert-by-id merge preserving delisted tenders; atomic writes
   (temp file + rename). Given the archive backfill's scale (~128k records), the repo
   batches writes rather than rewriting the whole file per record.
+
+### Cross-source idempotency / deduplication
+
+When future sources are added, the same real-world tender may appear in more than one
+source. Idempotency is handled at two levels:
+
+- **Within a source**: `id = <source>:<sourceId>` drives the upsert — rescraping is
+  always idempotent.
+- **Across sources**: the tender number (`referenceNo`) is the dedup key. A
+  `dedupKey` is computed as the normalized referenceNo (uppercase, all whitespace
+  stripped) and stored on each record. The query layer groups by `dedupKey` and serves
+  one canonical record per key — preferring the record with the most non-null fields,
+  tie-broken by most recent `scrapedAt`. All underlying records remain in storage
+  (nothing is deleted); the detail API exposes the other sources' records for the same
+  dedupKey as `alsoAvailableFrom` so no source attribution is lost. Records with an
+  empty referenceNo are never merged (dedupKey falls back to `id`).
 
 ### Startup
 
@@ -207,7 +236,10 @@ resume by running the archive backfill jobs only. Server serves immediately rega
   date/price parsing; repository upsert + atomic write at scale (batch write test with a
   large synthetic dataset given the ~128k-record archive); adapter test asserting all 6
   `(type, category)` job param combinations are used; supertest route tests with mocked
-  fetch (tests never hit the real site).
+  fetch (tests never hit the real site); rate-limiter tests (delay/jitter/backoff and
+  429 `Retry-After` handling with fake timers); dedup tests (same referenceNo across two
+  sources → one canonical result, `alsoAvailableFrom` populated, empty referenceNo never
+  merged).
 - Frontend: React Testing Library + MSW.
 - Shared: schema validation tests.
 - Enforcement: husky pre-commit runs the full suite; coverage thresholds 80%
