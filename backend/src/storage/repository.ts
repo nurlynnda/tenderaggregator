@@ -1,6 +1,7 @@
 import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Tender } from '@tms/shared';
+import { dedupeTenders } from '../query/tenders.js';
 
 export interface SourceMeta {
   lastScrapedAt: string | null;
@@ -15,6 +16,9 @@ export class TenderRepository {
   private readonly bySource = new Map<string, Map<string, Tender>>();
   private readonly metaBySource = new Map<string, SourceMeta>();
   private readonly loadedSources = new Set<string>();
+  // Read-through cache for the deduped view (query/tenders.ts's dedupeTenders over the
+  // whole dataset). Invalidated whenever the underlying data changes via upsertMany.
+  private cachedDeduped: Tender[] | null = null;
 
   constructor(private readonly dataDir: string) {}
 
@@ -50,6 +54,18 @@ export class TenderRepository {
     return [...this.bySource.values()].flatMap((m) => [...m.values()]);
   }
 
+  /**
+   * Deduped view (one canonical record per dedupKey), cached and recomputed lazily only
+   * when the underlying data has changed since the last call. At archive scale (~128k
+   * records) this avoids rebuilding the dedup Map + sort on every read request.
+   */
+  getDeduped(): Tender[] {
+    if (!this.cachedDeduped) {
+      this.cachedDeduped = dedupeTenders(this.getAll());
+    }
+    return this.cachedDeduped;
+  }
+
   hasSource(source: string): boolean {
     return this.loadedSources.has(source);
   }
@@ -61,6 +77,7 @@ export class TenderRepository {
       this.bySource.set(source, map);
     }
     for (const t of tenders) map.set(t.id, t);
+    this.cachedDeduped = null; // invalidate: underlying data changed
   }
 
   async flush(source: string): Promise<void> {

@@ -84,6 +84,22 @@ describe('TenderRepository', () => {
     expect(repo.getAll()).toEqual([]);
   });
 
+  it('getDeduped caches the deduped view and invalidates it after upsertMany', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.upsertMany('myprocurement', [makeTender({ dedupKey: 'A' })]);
+
+    const first = repo.getDeduped();
+    expect(first).toHaveLength(1);
+    const again = repo.getDeduped();
+    expect(again).toBe(first); // same reference: served from cache, not recomputed
+
+    repo.upsertMany('myprocurement', [makeTender({ id: 'myprocurement:2', sourceId: '2', dedupKey: 'B' })]);
+    const afterUpsert = repo.getDeduped();
+    expect(afterUpsert).toHaveLength(2); // reflects new data, not the stale cached array
+    expect(afterUpsert).not.toBe(first);
+  });
+
   it('handles large batch flush (archive scale) without quadratic behavior', async () => {
     const { repo } = freshRepo();
     await repo.load();

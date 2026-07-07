@@ -53,8 +53,8 @@ export function dedupeTenders(tenders: Tender[]): Tender[] {
   return [...byKey.values()];
 }
 
-export function queryTenders(tenders: Tender[], q: TenderQuery): TenderPage {
-  let items = dedupeTenders(tenders);
+export function queryTenders(tenders: Tender[], q: TenderQuery, opts: { deduped?: boolean } = {}): TenderPage {
+  let items = opts.deduped ? tenders : dedupeTenders(tenders);
 
   if (q.search) {
     const needle = q.search.toLowerCase();
@@ -90,8 +90,8 @@ export function queryTenders(tenders: Tender[], q: TenderQuery): TenderPage {
   };
 }
 
-export function buildFacets(tenders: Tender[]): Facets {
-  const deduped = dedupeTenders(tenders);
+export function buildFacets(tenders: Tender[], opts: { deduped?: boolean } = {}): Facets {
+  const deduped = opts.deduped ? tenders : dedupeTenders(tenders);
   const distinct = (vals: Array<string | null>) =>
     [...new Set(vals.filter((v): v is string => v !== null))].sort();
   return {

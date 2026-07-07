@@ -24,10 +24,11 @@ export function createApp(deps: { repo: TenderRepository; manager: ScrapeManager
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
   app.get('/api/tenders/facets', (_req, res) => {
-    res.json(buildFacets(deps.repo.getAll()));
+    res.json(buildFacets(deps.repo.getDeduped(), { deduped: true }));
   });
 
   app.get('/api/tenders/:id', (req, res) => {
+    // Uses the raw (non-deduped) list: alsoAvailableFrom must see every source's copy.
     const found = findById(deps.repo.getAll(), req.params.id);
     if (!found) return res.status(404).json({ error: 'tender not found' });
     res.json(found);
@@ -36,7 +37,7 @@ export function createApp(deps: { repo: TenderRepository; manager: ScrapeManager
   app.get('/api/tenders', (req, res) => {
     const parsed = QuerySchema.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
-    res.json(queryTenders(deps.repo.getAll(), parsed.data));
+    res.json(queryTenders(deps.repo.getDeduped(), parsed.data, { deduped: true }));
   });
 
   app.post('/api/scrape', (_req, res) => {
