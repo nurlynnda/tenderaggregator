@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -65,6 +65,23 @@ describe('TenderRepository', () => {
     const repo2 = new TenderRepository(dir);
     await repo2.load();
     expect(repo2.getMeta('myprocurement').lastArchiveBackfillAt).toBe('2026-07-07T00:00:00.000Z');
+  });
+
+  it('rejects on load when tenders.json is corrupted, instead of silently treating source as missing', async () => {
+    const { dir, repo } = freshRepo();
+    mkdirSync(join(dir, 'myprocurement'), { recursive: true });
+    writeFileSync(join(dir, 'myprocurement', 'tenders.json'), '{not valid json', 'utf8');
+
+    await expect(repo.load()).rejects.toThrow();
+  });
+
+  it('loads successfully with hasSource false when source directory has no tenders.json', async () => {
+    const { dir, repo } = freshRepo();
+    mkdirSync(join(dir, 'myprocurement'), { recursive: true }); // dir exists, but no tenders.json inside
+
+    await expect(repo.load()).resolves.toBeUndefined();
+    expect(repo.hasSource('myprocurement')).toBe(false);
+    expect(repo.getAll()).toEqual([]);
   });
 
   it('handles large batch flush (archive scale) without quadratic behavior', async () => {

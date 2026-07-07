@@ -32,13 +32,15 @@ export class TenderRepository {
         const tenders = JSON.parse(await readFile(join(this.dataDir, source, 'tenders.json'), 'utf8')) as Tender[];
         this.bySource.set(source, new Map(tenders.map((t) => [t.id, t])));
         this.loadedSources.add(source);
-      } catch {
+      } catch (err) {
+        if (!isNotFoundError(err)) throw err;
         /* no tenders.json for this source */
       }
       try {
         const meta = JSON.parse(await readFile(join(this.dataDir, source, 'meta.json'), 'utf8')) as SourceMeta;
         this.metaBySource.set(source, { ...DEFAULT_META, ...meta });
-      } catch {
+      } catch (err) {
+        if (!isNotFoundError(err)) throw err;
         /* no meta.json */
       }
     }
@@ -81,6 +83,10 @@ export class TenderRepository {
     await mkdir(dir, { recursive: true });
     await atomicWrite(join(dir, 'meta.json'), JSON.stringify(merged, null, 2));
   }
+}
+
+function isNotFoundError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'code' in err && (err as { code?: unknown }).code === 'ENOENT';
 }
 
 async function atomicWrite(path: string, content: string): Promise<void> {
