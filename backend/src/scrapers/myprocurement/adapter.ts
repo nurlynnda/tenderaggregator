@@ -1,17 +1,20 @@
 import { z } from 'zod';
 import type { ScrapeHooks, ScrapeScope, ScraperAdapter } from '../types.js';
 import { parseListingHtml } from './parseListing.js';
+import { parseResultsHtml } from './parseResults.js';
 
 const BASE_URL = 'https://myprocurement.treasury.gov.my/procurements/fetch';
 const ITEMS_PER_PAGE = 100;
 
 export const MYPROCUREMENT_JOBS = [
-  { status: 'open', procurementType: 'quotation', type: 'advertisements', category: 'quotation' },
-  { status: 'open', procurementType: 'tender', type: 'advertisements', category: 'tender' },
-  { status: 'open', procurementType: 'requisition', type: 'advertisements', category: 'requisition' },
-  { status: 'closed', procurementType: 'quotation', type: 'archive', category: 'advertisement-quotation' },
-  { status: 'closed', procurementType: 'tender', type: 'archive', category: 'advertisement-tender' },
-  { status: 'closed', procurementType: 'requisition', type: 'archive', category: 'advertisement-requisition' },
+  { status: 'open', procurementType: 'quotation', type: 'advertisements', category: 'quotation', kind: 'full' },
+  { status: 'open', procurementType: 'tender', type: 'advertisements', category: 'tender', kind: 'full' },
+  { status: 'open', procurementType: 'requisition', type: 'advertisements', category: 'requisition', kind: 'full' },
+  { status: 'closed', procurementType: 'quotation', type: 'archive', category: 'advertisement-quotation', kind: 'full' },
+  { status: 'closed', procurementType: 'tender', type: 'archive', category: 'advertisement-tender', kind: 'full' },
+  { status: 'closed', procurementType: 'requisition', type: 'archive', category: 'advertisement-requisition', kind: 'full' },
+  { status: 'closed', procurementType: 'quotation', type: 'archive', category: 'results-quotation', kind: 'results' },
+  { status: 'closed', procurementType: 'tender', type: 'archive', category: 'results-tender', kind: 'results' },
 ] as const;
 
 const ListingResponse = z.object({ html: z.string(), lastPage: z.number().int().min(1) });
@@ -27,7 +30,9 @@ export class MyProcurementAdapter implements ScraperAdapter {
     );
 
     for (const [jobIndex, job] of jobs.entries()) {
-      const jobName = `${job.status}-${job.procurementType}`;
+      const jobName = job.kind === 'results'
+        ? `${job.status}-${job.procurementType}-results`
+        : `${job.status}-${job.procurementType}`;
       let page = 1;
       let lastPage = 1;
       do {
@@ -42,11 +47,10 @@ export class MyProcurementAdapter implements ScraperAdapter {
           currentPage: page,
           lastPage,
         });
-        const tenders = parseListingHtml(body.html, {
-          status: job.status,
-          procurementType: job.procurementType,
-        });
-        await hooks.onBatch(tenders);
+        const patches = job.kind === 'results'
+          ? parseResultsHtml(body.html, { procurementType: job.procurementType })
+          : parseListingHtml(body.html, { status: job.status, procurementType: job.procurementType });
+        await hooks.onBatch(patches);
         page += 1;
       } while (page <= lastPage);
     }
