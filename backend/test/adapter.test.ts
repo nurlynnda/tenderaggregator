@@ -121,4 +121,40 @@ describe('MyProcurementAdapter', () => {
     await expect(adapter.scrape('open', { onProgress: () => {}, onBatch })).rejects.toThrow('fetch failed');
     expect(onBatch).not.toHaveBeenCalled();
   });
+
+  it('archiveJobNames() lists the 5 closed job names (the set backfill-completeness is tracked against)', () => {
+    const adapter = new MyProcurementAdapter(vi.fn());
+    expect(adapter.archiveJobNames()).toEqual([
+      'closed-quotation', 'closed-tender', 'closed-requisition',
+      'closed-quotation-results', 'closed-tender-results',
+    ]);
+  });
+
+  it('calls onJobDone with each job name once it finishes paginating, before moving to the next job', async () => {
+    const fetcher = vi.fn(async () => pageResponse([1], 2));
+    const adapter = new MyProcurementAdapter(fetcher);
+    const done: string[] = [];
+    await adapter.scrape('archive', {
+      onProgress: () => {},
+      onBatch: async () => {},
+      onJobDone: (jobName) => { done.push(jobName); },
+    });
+    expect(done).toEqual([
+      'closed-quotation', 'closed-tender', 'closed-requisition',
+      'closed-quotation-results', 'closed-tender-results',
+    ]);
+  });
+
+  it('skips closed jobs already present in skipJobNames, but never skips open jobs', async () => {
+    const fetcher = vi.fn(async () => pageResponse([1], 1));
+    const adapter = new MyProcurementAdapter(fetcher);
+    const jobNames: string[] = [];
+    await adapter.scrape('all', { onProgress: (p) => jobNames.push(p.job), onBatch: async () => {} }, {
+      skipJobNames: new Set(['closed-quotation', 'closed-quotation-results']),
+    });
+    expect(jobNames).toEqual([
+      'open-quotation', 'open-tender', 'open-requisition',
+      'closed-tender', 'closed-requisition', 'closed-tender-results',
+    ]);
+  });
 });

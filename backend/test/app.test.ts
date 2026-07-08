@@ -104,7 +104,7 @@ describe('API', () => {
     const gate = new Promise<void>((r) => { release = r; });
     let receivedScope: string | undefined;
     const blockingManager = new ScrapeManager(
-      [{ name: 'fake', scrape: async (scope: string, _h: ScrapeHooks) => { receivedScope = scope; await gate; } }],
+      [{ name: 'fake', scrape: async (scope: string, _h: ScrapeHooks) => { receivedScope = scope; await gate; }, archiveJobNames: () => [] }],
       repo,
     );
     const app2 = createApp({ repo, manager: blockingManager });

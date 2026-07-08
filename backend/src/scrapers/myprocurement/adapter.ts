@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ScrapeHooks, ScrapeScope, ScraperAdapter } from '../types.js';
+import type { ScrapeHooks, ScrapeOptions, ScrapeScope, ScraperAdapter } from '../types.js';
 import { parseListingHtml } from './parseListing.js';
 import { parseResultsHtml } from './parseResults.js';
 
@@ -19,20 +19,31 @@ export const MYPROCUREMENT_JOBS = [
 
 const ListingResponse = z.object({ html: z.string(), lastPage: z.number().int().min(1) });
 
+type MyProcurementJob = (typeof MYPROCUREMENT_JOBS)[number];
+
+function jobName(job: MyProcurementJob): string {
+  return job.kind === 'results' ? `${job.status}-${job.procurementType}-results` : `${job.status}-${job.procurementType}`;
+}
+
 export class MyProcurementAdapter implements ScraperAdapter {
   readonly name = 'myprocurement';
 
   constructor(private readonly fetcher: (url: string) => Promise<unknown>) {}
 
-  async scrape(scope: ScrapeScope, hooks: ScrapeHooks): Promise<void> {
-    const jobs = MYPROCUREMENT_JOBS.filter((j) =>
-      scope === 'all' ? true : scope === 'open' ? j.status === 'open' : j.status === 'closed',
-    );
+  archiveJobNames(): string[] {
+    return MYPROCUREMENT_JOBS.filter((j) => j.status === 'closed').map(jobName);
+  }
+
+  async scrape(scope: ScrapeScope, hooks: ScrapeHooks, opts: ScrapeOptions = {}): Promise<void> {
+    const jobs = MYPROCUREMENT_JOBS.filter((j) => {
+      const inScope = scope === 'all' ? true : scope === 'open' ? j.status === 'open' : j.status === 'closed';
+      if (!inScope) return false;
+      if (j.status === 'closed' && opts.skipJobNames?.has(jobName(j))) return false; // already backfilled
+      return true;
+    });
 
     for (const [jobIndex, job] of jobs.entries()) {
-      const jobName = job.kind === 'results'
-        ? `${job.status}-${job.procurementType}-results`
-        : `${job.status}-${job.procurementType}`;
+      const name = jobName(job);
       let page = 1;
       let lastPage = 1;
       do {
@@ -41,7 +52,7 @@ export class MyProcurementAdapter implements ScraperAdapter {
         lastPage = body.lastPage;
         hooks.onProgress({
           source: this.name,
-          job: jobName,
+          job: name,
           jobsCompleted: jobIndex,
           jobsTotal: jobs.length,
           currentPage: page,
@@ -53,6 +64,7 @@ export class MyProcurementAdapter implements ScraperAdapter {
         await hooks.onBatch(patches);
         page += 1;
       } while (page <= lastPage);
+      await hooks.onJobDone?.(name);
     }
   }
 }

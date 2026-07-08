@@ -18,8 +18,11 @@ function makePatch(id: number): TenderPatch {
   };
 }
 
-function fakeAdapter(behavior: (scope: ScrapeScope, hooks: ScrapeHooks) => Promise<void>): ScraperAdapter {
-  return { name: 'fake', scrape: behavior };
+function fakeAdapter(
+  behavior: (scope: ScrapeScope, hooks: ScrapeHooks, opts?: import('../src/scrapers/types.js').ScrapeOptions) => Promise<void>,
+  archiveJobNames: string[] = [],
+): ScraperAdapter {
+  return { name: 'fake', scrape: behavior, archiveJobNames: () => archiveJobNames };
 }
 
 async function waitUntil(predicate: () => boolean, timeoutMs = 2000, intervalMs = 20): Promise<void> {
@@ -116,6 +119,23 @@ describe('ScrapeManager', () => {
     const openFlushes = await countFlushes('open', 20);
     const archiveFlushes = await countFlushes('archive', 20);
     expect(openFlushes).toBeGreaterThan(archiveFlushes);
+  });
+
+  it('passes previously-completed archive job names as skipJobNames, and persists onJobDone incrementally', async () => {
+    const repo = await freshRepo();
+    await repo.setMeta('fake', { completedArchiveJobs: ['closed-quotation'] });
+    const seenSkip: Set<string>[] = [];
+    const adapter = fakeAdapter(async (_scope, hooks, opts) => {
+      seenSkip.push(new Set(opts!.skipJobNames!)); // snapshot: the manager's set mutates as jobs finish
+      await hooks.onJobDone!('closed-tender');
+      // mid-run: only the job just finished has been persisted so far, alongside the pre-existing one.
+      expect(repo.getMeta('fake').completedArchiveJobs).toEqual(['closed-quotation', 'closed-tender']);
+      await hooks.onJobDone!('closed-requisition');
+    });
+    const mgr = new ScrapeManager([adapter], repo, { now: NOW });
+    await mgr.runToCompletion('archive');
+    expect(seenSkip[0]).toEqual(new Set(['closed-quotation']));
+    expect(repo.getMeta('fake').completedArchiveJobs).toEqual(['closed-quotation', 'closed-tender', 'closed-requisition']);
   });
 
   it('sets failed state with error message; keeps previously flushed batches', async () => {

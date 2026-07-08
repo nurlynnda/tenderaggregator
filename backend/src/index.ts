@@ -26,7 +26,8 @@ async function main() {
     adapterNames: adapters.map((a) => a.name),
     hasSource: (name) => repo.hasSource(name),
     mergedCount: repo.getAll().length,
-    getLastArchiveBackfillAt: (name) => repo.getMeta(name).lastArchiveBackfillAt,
+    getArchiveJobNames: (name) => adapters.find((a) => a.name === name)?.archiveJobNames() ?? [],
+    getCompletedArchiveJobs: (name) => repo.getMeta(name).completedArchiveJobs,
   });
   if (emptyStoreMismatch) {
     console.warn(

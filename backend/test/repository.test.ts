@@ -130,7 +130,9 @@ describe('TenderRepository', () => {
   it('meta defaults, patches, and persists per source; hasSource reflects a completed scrape', async () => {
     const { dir, repo } = freshRepo();
     await repo.load();
-    expect(repo.getMeta('myprocurement')).toEqual({ lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0 });
+    expect(repo.getMeta('myprocurement')).toEqual({
+      lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0, completedArchiveJobs: [],
+    });
     expect(repo.hasSource('myprocurement')).toBe(false);
     await repo.setMeta('myprocurement', { lastArchiveBackfillAt: '2026-07-07T00:00:00.000Z', total: 5 });
     expect(repo.hasSource('myprocurement')).toBe(true);
@@ -139,6 +141,18 @@ describe('TenderRepository', () => {
     await repo2.load();
     expect(repo2.getMeta('myprocurement').lastArchiveBackfillAt).toBe('2026-07-07T00:00:00.000Z');
     expect(repo2.hasSource('myprocurement')).toBe(true);
+  });
+
+  it('persists completedArchiveJobs across reloads (backfill-completeness per job kind)', async () => {
+    const { dir, repo } = freshRepo();
+    await repo.load();
+    await repo.setMeta('myprocurement', { completedArchiveJobs: ['closed-quotation'] });
+    await repo.setMeta('myprocurement', { completedArchiveJobs: ['closed-quotation', 'closed-tender'] });
+    expect(repo.getMeta('myprocurement').completedArchiveJobs).toEqual(['closed-quotation', 'closed-tender']);
+
+    const repo2 = new TenderRepository(dir);
+    await repo2.load();
+    expect(repo2.getMeta('myprocurement').completedArchiveJobs).toEqual(['closed-quotation', 'closed-tender']);
   });
 
   it('rejects on load when tenders.json is corrupted', async () => {

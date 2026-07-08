@@ -51,19 +51,31 @@ export class ScrapeManager {
     try {
       for (const adapter of this.adapters) {
         let pagesSinceFlush = 0;
-        await adapter.scrape(scope, {
-          onProgress: (p) => {
-            this.current = { state: 'running', ...p };
+        const completedArchiveJobs = new Set(this.repo.getMeta(adapter.name).completedArchiveJobs);
+        await adapter.scrape(
+          scope,
+          {
+            onProgress: (p) => {
+              this.current = { state: 'running', ...p };
+            },
+            onBatch: async (patches) => {
+              this.repo.mergeMany(patches);
+              pagesSinceFlush += 1;
+              if (pagesSinceFlush >= flushEvery) {
+                await this.repo.flush();
+                pagesSinceFlush = 0;
+              }
+            },
+            onJobDone: async (jobName) => {
+              // Persisted per job (not just at the end of the whole scrape) so a crash mid-backfill
+              // resumes only the jobs that never finished, and a newly added job kind is picked up
+              // even if older jobs already completed in a past run.
+              completedArchiveJobs.add(jobName);
+              await this.repo.setMeta(adapter.name, { completedArchiveJobs: [...completedArchiveJobs] });
+            },
           },
-          onBatch: async (patches) => {
-            this.repo.mergeMany(patches);
-            pagesSinceFlush += 1;
-            if (pagesSinceFlush >= flushEvery) {
-              await this.repo.flush();
-              pagesSinceFlush = 0;
-            }
-          },
-        });
+          { skipJobNames: completedArchiveJobs },
+        );
         await this.repo.flush();
         const stamp: Parameters<TenderRepository['setMeta']>[1] = {
           lastScrapedAt: now(),

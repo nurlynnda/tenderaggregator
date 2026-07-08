@@ -6,9 +6,16 @@ export interface SourceMeta {
   lastScrapedAt: string | null;
   lastArchiveBackfillAt: string | null;
   total: number;
+  /** Closed/archive job names (see ScraperAdapter.archiveJobNames) that have fully paginated at least
+   * once. Tracked per job kind — rather than a single completion flag — so that adding a new archive
+   * job (e.g. a results scraper) is automatically detected as incomplete and gets backfilled, instead
+   * of being silently skipped forever because an unrelated job already finished in the past. */
+  completedArchiveJobs: string[];
 }
 
-const DEFAULT_META: SourceMeta = { lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0 };
+const DEFAULT_META: SourceMeta = {
+  lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0, completedArchiveJobs: [],
+};
 
 // Fields that may legitimately be scraped as null; a later patch's null must never clobber
 // an already-known value for these (see design: "most-recent-non-null-wins"). Array fields

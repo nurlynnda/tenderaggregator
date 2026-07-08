@@ -6,7 +6,10 @@ export interface StartupPolicyDeps {
   adapterNames: string[];
   hasSource: (name: string) => boolean;
   mergedCount: number;
-  getLastArchiveBackfillAt: (name: string) => string | null;
+  /** The full set of closed/archive job names this adapter will ever run (ScraperAdapter.archiveJobNames). */
+  getArchiveJobNames: (name: string) => string[];
+  /** Archive job names that have fully paginated at least once (SourceMeta.completedArchiveJobs). */
+  getCompletedArchiveJobs: (name: string) => string[];
 }
 
 export interface StartupPolicyResult {
@@ -25,7 +28,14 @@ export function decideStartupPolicy(deps: StartupPolicyDeps): StartupPolicyResul
   const someSourceReportsPrior = deps.adapterNames.some((name) => deps.hasSource(name));
 
   const needsFull = noSourceHasEverRun || mergedIsEmpty;
-  const needsBackfill = deps.adapterNames.some((name) => deps.getLastArchiveBackfillAt(name) === null);
+  // Per-job-kind comparison (not a single "backfill done" flag): if the adapter has ever grown a
+  // new archive job (e.g. a results scraper added after the first backfill completed), that job
+  // name won't be in completedArchiveJobs yet, so this correctly reports "needs backfill" instead
+  // of treating the whole source as permanently done.
+  const needsBackfill = deps.adapterNames.some((name) => {
+    const completed = new Set(deps.getCompletedArchiveJobs(name));
+    return deps.getArchiveJobNames(name).some((job) => !completed.has(job));
+  });
   const emptyStoreMismatch = mergedIsEmpty && someSourceReportsPrior;
 
   return { needsFull, needsBackfill, emptyStoreMismatch };
