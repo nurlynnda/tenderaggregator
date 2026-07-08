@@ -74,13 +74,12 @@ describe('parseListingHtml — embedded card, exact values', () => {
   it('extracts every field from a card', () => {
     const [t] = parseListingHtml(CARD_HTML, OPEN_Q);
     expect(t).toBeDefined();
-    expect(t!.id).toBe('myprocurement:789195');
-    expect(t!.source).toBe('myprocurement');
-    expect(t!.sourceId).toBe('789195');
+    expect(t!.sources[0]!.source).toBe('myprocurement');
+    expect(t!.sources[0]!.sourceId).toBe('789195');
+    expect(t!.sources[0]!.sourceUrl).toBe('https://myprocurement.treasury.gov.my/advertisements/quotation/71ebb6ee');
     expect(t!.referenceNo).toBe('UTHM/54(KTKEM)/P/02/023/2026(1)');
     expect(t!.dedupKey).toBe('UTHM/54(KTKEM)/P/02/023/2026(1)');
     expect(t!.title).toBe('MAKMAL ELEKTRIK & ELEKTRONIK 2'); // entity decoded
-    expect(t!.sourceUrl).toBe('https://myprocurement.treasury.gov.my/advertisements/quotation/71ebb6ee');
     expect(t!.status).toBe('open');
     expect(t!.procurementType).toBe('quotation');
     expect(t!.ministry).toBe('KEMENTERIAN PENDIDIKAN TINGGI');
@@ -125,7 +124,7 @@ describe('parseListingHtml — edge cases for branch coverage', () => {
   it('ignores non-card x-data wrappers (e.g. pagination controls)', () => {
     const withPagination = `<div x-data="{ page: 1 }"><span>1</span></div>${CARD_HTML}`;
     const [t] = parseListingHtml(withPagination, OPEN_Q);
-    expect(t!.sourceId).toBe('789195');
+    expect(t!.sources[0]!.sourceId).toBe('789195');
   });
 
   it('falls back to Date.now() when ctx.now is not provided', () => {
@@ -159,7 +158,7 @@ describe('parseListingHtml — live fixtures, structural invariants', () => {
       expect(tenders.length).toBeGreaterThan(0);
       // Every select-procurement id in the HTML must yield a parsed tender: nothing missed.
       const idsInHtml = new Set([...raw.html.matchAll(/select-procurement'?,?\s*\{\s*id:\s*(\d+)/g)].map((m) => m[1]));
-      expect(new Set(tenders.map((t) => t.sourceId))).toEqual(idsInHtml);
+      expect(new Set(tenders.map((t) => t.sources[0]!.sourceId))).toEqual(idsInHtml);
       for (const t of tenders) {
         expect(() => TenderSchema.parse(t)).not.toThrow();
         expect(t.status).toBe(ctx.status);

@@ -87,13 +87,9 @@ function parseCard(
 
   const id = `${SOURCE}:${sourceId}`;
   return {
-    id,
-    source: SOURCE,
-    sourceId,
-    referenceNo,
     dedupKey: computeDedupKey(referenceNo, id),
+    referenceNo,
     title,
-    sourceUrl,
     status: ctx.status,
     procurementType: ctx.procurementType,
     ministry: raw['Kementerian'] || null,
@@ -105,8 +101,10 @@ function parseCard(
     indicativePrice: parseRmPrice(raw['Harga Indikatif Jabatan']),
     currency: 'MYR' as const,
     events,
+    winners: null,
     raw,
     scrapedAt,
+    sources: [{ source: SOURCE, sourceId, sourceUrl }],
   };
 }
 
