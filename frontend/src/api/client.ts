@@ -15,8 +15,8 @@ export function fetchFacets(): Promise<Facets> {
   return getJson('/api/tenders/facets');
 }
 
-export function fetchTender(id: string): Promise<TenderDetail> {
-  return getJson(`/api/tenders/${encodeURIComponent(id)}`);
+export function fetchTender(refNo: string): Promise<TenderDetail> {
+  return getJson(`/api/tenders/${encodeURIComponent(refNo)}`);
 }
 
 export function fetchScrapeStatus(): Promise<ScrapeStatus> {

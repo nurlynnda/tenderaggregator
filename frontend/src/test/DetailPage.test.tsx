@@ -6,13 +6,13 @@ import { describe, expect, it } from 'vitest';
 import DetailPage from '../pages/DetailPage';
 import { makeTender, server } from './mocks';
 
-function renderDetail(id: string) {
+function renderDetail(refNo: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[`/tenders/${encodeURIComponent(id)}`]}>
+      <MemoryRouter initialEntries={[`/tenders/${encodeURIComponent(refNo)}`]}>
         <Routes>
-          <Route path="/tenders/:id" element={<DetailPage />} />
+          <Route path="/tenders/:refNo" element={<DetailPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -20,8 +20,8 @@ function renderDetail(id: string) {
 }
 
 describe('DetailPage', () => {
-  it('renders all tender fields including events and official link', async () => {
-    renderDetail('myprocurement:1');
+  it('renders all tender fields including events and official link, without Source/Scraped At rows', async () => {
+    renderDetail('UTHM/54/P/02/023/2026');
     expect(await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).toBeInTheDocument();
     expect(screen.getByText('UTHM/54/P/02/023/2026')).toBeInTheDocument();
     expect(screen.getByText('KEMENTERIAN PENDIDIKAN TINGGI')).toBeInTheDocument();
@@ -34,20 +34,40 @@ describe('DetailPage', () => {
     expect(screen.getByText('MAKMAL OR, KAJANG')).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /view on official site/i });
     expect(link).toHaveAttribute('href', 'https://example.com/1');
+    expect(screen.queryByText(/^Source$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Scraped At$/)).not.toBeInTheDocument();
   });
 
-  it('shows other sources when alsoAvailableFrom is non-empty', async () => {
-    server.use(http.get('/api/tenders/:id', () => HttpResponse.json({
-      tender: makeTender(),
-      alsoAvailableFrom: [makeTender({ id: 'other:9', source: 'other', sourceUrl: 'https://other.example/9' })],
+  it('shows a Winners row when winners are present', async () => {
+    server.use(http.get('/api/tenders/:refNo', () => HttpResponse.json({
+      tender: makeTender({ winners: [{ name: 'EVERLASTING LUCK SDN. BHD.', price: 72000 }] }),
     })));
-    renderDetail('myprocurement:1');
+    renderDetail('UTHM/54/P/02/023/2026');
+    expect(await screen.findByText(/EVERLASTING LUCK SDN\. BHD\. — RM 72,000\.00/)).toBeInTheDocument();
+  });
+
+  it('shows "Also listed on" when the tender has more than one contributing source', async () => {
+    server.use(http.get('/api/tenders/:refNo', () => HttpResponse.json({
+      tender: makeTender({
+        sources: [
+          { source: 'myprocurement', sourceId: '1', sourceUrl: 'https://example.com/1' },
+          { source: 'other', sourceId: '9', sourceUrl: 'https://other.example/9' },
+        ],
+      }),
+    })));
+    renderDetail('UTHM/54/P/02/023/2026');
     expect(await screen.findByText(/also listed on/i)).toBeInTheDocument();
     expect(screen.getByText('other')).toBeInTheDocument();
   });
 
-  it('shows an error state for unknown ids', async () => {
-    renderDetail('nope:1');
+  it('does not show "Also listed on" for a single-source tender', async () => {
+    renderDetail('UTHM/54/P/02/023/2026');
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+    expect(screen.queryByText(/also listed on/i)).not.toBeInTheDocument();
+  });
+
+  it('shows an error state for unknown reference numbers', async () => {
+    renderDetail('NOPE');
     expect(await screen.findByText(/not found|failed/i)).toBeInTheDocument();
   });
 });

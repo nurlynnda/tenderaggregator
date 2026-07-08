@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { fetchTender } from '../api/client';
+import type { Tender } from '../api/types';
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -11,12 +12,18 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+function formatWinners(winners: NonNullable<Tender['winners']>): string {
+  return winners
+    .map((w) => `${w.name} — ${w.price === null ? 'RM —' : `RM ${w.price.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`}`)
+    .join(', ');
+}
+
 export default function DetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { refNo } = useParams<{ refNo: string }>();
   const { data, isError } = useQuery({
-    queryKey: ['tender', id],
-    queryFn: () => fetchTender(id!),
-    enabled: Boolean(id),
+    queryKey: ['tender', refNo],
+    queryFn: () => fetchTender(refNo!),
+    enabled: Boolean(refNo),
   });
 
   if (isError) return <div className="text-red-700">Tender not found.</div>;
@@ -25,10 +32,10 @@ export default function DetailPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <Link to="/" className="text-blue-700 underline">← Back to all tenders</Link>
+      <Link to="/open" className="text-blue-700 underline">← Back to all tenders</Link>
       <h1 className="text-xl font-bold">{t.title}</h1>
       <a
-        href={t.sourceUrl}
+        href={t.sources[0]!.sourceUrl}
         target="_blank"
         rel="noreferrer"
         className="inline-block bg-blue-900 text-white rounded-md px-4 py-2"
@@ -51,8 +58,9 @@ export default function DetailPage() {
           value={t.indicativePrice === null ? null
             : `RM ${t.indicativePrice.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`}
         />
-        <Field label="Source" value={t.source} />
-        <Field label="Scraped At" value={t.scrapedAt} />
+        {t.winners && t.winners.length > 0 && (
+          <Field label="Winners" value={formatWinners(t.winners)} />
+        )}
       </div>
 
       {t.events.length > 0 && (
@@ -75,13 +83,13 @@ export default function DetailPage() {
         </div>
       )}
 
-      {data.alsoAvailableFrom.length > 0 && (
+      {t.sources.length > 1 && (
         <div>
           <h2 className="font-semibold mb-2">Also listed on</h2>
           <ul className="list-disc pl-6">
-            {data.alsoAvailableFrom.map((o) => (
-              <li key={o.id}>
-                <a href={o.sourceUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">{o.source}</a>
+            {t.sources.map((s) => (
+              <li key={s.source}>
+                <a href={s.sourceUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">{s.source}</a>
               </li>
             ))}
           </ul>

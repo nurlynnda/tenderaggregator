@@ -19,11 +19,11 @@ describe('api client', () => {
   it('fetchFacets / fetchScrapeStatus / fetchTender return typed bodies', async () => {
     expect(await fetchFacets()).toEqual(defaultFacets);
     expect((await fetchScrapeStatus()).state).toBe('idle');
-    expect((await fetchTender('myprocurement:1')).tender.id).toBe('myprocurement:1');
+    expect((await fetchTender('UTHM/54/P/02/023/2026')).tender.referenceNo).toBe('UTHM/54/P/02/023/2026');
   });
 
   it('fetchTender throws on 404', async () => {
-    await expect(fetchTender('nope:1')).rejects.toThrow();
+    await expect(fetchTender('NOPE')).rejects.toThrow();
   });
 
   it('triggerScrape resolves on 202 and throws on 409', async () => {
