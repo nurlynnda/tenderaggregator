@@ -67,6 +67,13 @@ describe('API', () => {
     expect(awarded.body.total).toBe(1);
   });
 
+  it('GET /api/tenders?hasWinners=false returns unfiltered results, not awarded-only', async () => {
+    repo.mergeMany([patch({ winners: [{ name: 'X', price: 1 }] }), patch(), patch()]);
+    const res = await request(app).get('/api/tenders?hasWinners=false');
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(3);
+  });
+
   it('GET /api/tenders rejects invalid query params with 400', async () => {
     const res = await request(app).get('/api/tenders?status=maybe');
     expect(res.status).toBe(400);

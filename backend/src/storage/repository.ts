@@ -146,6 +146,11 @@ export class TenderRepository {
 
   async flush(): Promise<void> {
     await mkdir(this.dataDir, { recursive: true });
+    // Each write below is individually atomic (temp file + rename), but the pair is not
+    // atomic together: a crash between them can leave field-provenance.json out of sync
+    // with tenders.json. This is a known, accepted window — the null-clobber guard in
+    // mergeOne() (NULLABLE_FIELDS) means a slightly stale/missing provenance entry can at
+    // worst cause one extra overwrite on the next merge, never data loss or corruption.
     await atomicWrite(join(this.dataDir, 'tenders.json'), JSON.stringify([...this.merged.values()]));
     await atomicWrite(
       join(this.dataDir, 'field-provenance.json'),
