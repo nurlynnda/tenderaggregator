@@ -1,7 +1,6 @@
 import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Tender } from '@tms/shared';
-import { dedupeTenders } from '../query/tenders.js';
+import type { Tender, TenderPatch } from '@tms/shared';
 
 export interface SourceMeta {
   lastScrapedAt: string | null;
@@ -11,82 +10,147 @@ export interface SourceMeta {
 
 const DEFAULT_META: SourceMeta = { lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0 };
 
+// Fields that may legitimately be scraped as null; a later patch's null must never clobber
+// an already-known value for these (see design: "most-recent-non-null-wins"). Array fields
+// (fieldCodes, events) and always-present identity fields don't need this guard: they never
+// carry null, only omission (absent key) or an empty array, both handled by the generic loop.
+const NULLABLE_FIELDS = new Set([
+  'ministry', 'agency', 'category', 'advertisedDate', 'closingDate', 'indicativePrice', 'winners',
+]);
+
+type ProvenanceMap = Record<string, string>; // fieldName -> scrapedAt ISO of the patch that last wrote it
+
 export class TenderRepository {
-  // source -> (id -> Tender): Map keeps upserts O(1) even at archive scale
-  private readonly bySource = new Map<string, Map<string, Tender>>();
+  private readonly merged = new Map<string, Tender>(); // dedupKey -> Tender
+  private readonly provenance = new Map<string, ProvenanceMap>(); // dedupKey -> field provenance
   private readonly metaBySource = new Map<string, SourceMeta>();
-  private readonly loadedSources = new Set<string>();
-  // Read-through cache for the deduped view (query/tenders.ts's dedupeTenders over the
-  // whole dataset). Invalidated whenever the underlying data changes via upsertMany.
-  private cachedDeduped: Tender[] | null = null;
 
   constructor(private readonly dataDir: string) {}
 
   async load(): Promise<void> {
-    let sources: string[] = [];
     try {
-      sources = (await readdir(this.dataDir, { withFileTypes: true }))
+      const tenders = JSON.parse(await readFile(join(this.dataDir, 'tenders.json'), 'utf8')) as Tender[];
+      for (const t of tenders) this.merged.set(t.dedupKey, t);
+    } catch (err) {
+      if (!isNotFoundError(err)) throw err;
+    }
+    try {
+      const prov = JSON.parse(
+        await readFile(join(this.dataDir, 'field-provenance.json'), 'utf8'),
+      ) as Record<string, ProvenanceMap>;
+      for (const [key, value] of Object.entries(prov)) this.provenance.set(key, value);
+    } catch (err) {
+      if (!isNotFoundError(err)) throw err;
+    }
+
+    let sourceDirs: string[] = [];
+    try {
+      sourceDirs = (await readdir(this.dataDir, { withFileTypes: true }))
         .filter((e) => e.isDirectory())
         .map((e) => e.name);
     } catch {
       return; // data dir doesn't exist yet
     }
-    for (const source of sources) {
-      try {
-        const tenders = JSON.parse(await readFile(join(this.dataDir, source, 'tenders.json'), 'utf8')) as Tender[];
-        this.bySource.set(source, new Map(tenders.map((t) => [t.id, t])));
-        this.loadedSources.add(source);
-      } catch (err) {
-        if (!isNotFoundError(err)) throw err;
-        /* no tenders.json for this source */
-      }
+    for (const source of sourceDirs) {
       try {
         const meta = JSON.parse(await readFile(join(this.dataDir, source, 'meta.json'), 'utf8')) as SourceMeta;
         this.metaBySource.set(source, { ...DEFAULT_META, ...meta });
       } catch (err) {
         if (!isNotFoundError(err)) throw err;
-        /* no meta.json */
       }
     }
   }
 
   getAll(): Tender[] {
-    return [...this.bySource.values()].flatMap((m) => [...m.values()]);
+    return [...this.merged.values()];
   }
 
-  /**
-   * Deduped view (one canonical record per dedupKey), cached and recomputed lazily only
-   * when the underlying data has changed since the last call. At archive scale (~128k
-   * records) this avoids rebuilding the dedup Map + sort on every read request.
-   */
-  getDeduped(): Tender[] {
-    if (!this.cachedDeduped) {
-      this.cachedDeduped = dedupeTenders(this.getAll());
-    }
-    return this.cachedDeduped;
+  findByDedupKey(dedupKey: string): Tender | null {
+    return this.merged.get(dedupKey) ?? null;
   }
 
   hasSource(source: string): boolean {
-    return this.loadedSources.has(source);
+    return this.metaBySource.has(source);
   }
 
-  upsertMany(source: string, tenders: Tender[]): void {
-    let map = this.bySource.get(source);
-    if (!map) {
-      map = new Map();
-      this.bySource.set(source, map);
+  getSourceCount(source: string): number {
+    let count = 0;
+    for (const t of this.merged.values()) {
+      if (t.sources.some((s) => s.source === source)) count += 1;
     }
-    for (const t of tenders) map.set(t.id, t);
-    this.cachedDeduped = null; // invalidate: underlying data changed
+    return count;
   }
 
-  async flush(source: string): Promise<void> {
-    const map = this.bySource.get(source) ?? new Map<string, Tender>();
-    const dir = join(this.dataDir, source);
-    await mkdir(dir, { recursive: true });
-    await atomicWrite(join(dir, 'tenders.json'), JSON.stringify([...map.values()]));
-    this.loadedSources.add(source);
-    await this.setMeta(source, { total: map.size });
+  mergeMany(patches: TenderPatch[]): void {
+    for (const patch of patches) this.mergeOne(patch);
+  }
+
+  private mergeOne(patch: TenderPatch): void {
+    const key = patch.dedupKey;
+    const existing = this.merged.get(key);
+
+    if (!existing) {
+      const seeded: Tender = {
+        dedupKey: key,
+        referenceNo: patch.referenceNo,
+        title: patch.title,
+        status: patch.status,
+        procurementType: patch.procurementType,
+        ministry: patch.ministry ?? null,
+        agency: patch.agency ?? null,
+        category: patch.category ?? null,
+        fieldCodes: patch.fieldCodes ?? [],
+        advertisedDate: patch.advertisedDate ?? null,
+        closingDate: patch.closingDate ?? null,
+        indicativePrice: patch.indicativePrice ?? null,
+        currency: 'MYR',
+        events: patch.events ?? [],
+        winners: patch.winners ?? null,
+        raw: patch.raw ?? {},
+        scrapedAt: patch.scrapedAt,
+        sources: [patch.source],
+      };
+      const prov: ProvenanceMap = {};
+      for (const field of Object.keys(patch)) {
+        if (field === 'dedupKey' || field === 'source') continue;
+        prov[field] = patch.scrapedAt;
+      }
+      this.merged.set(key, seeded);
+      this.provenance.set(key, prov);
+      return;
+    }
+
+    const prov = this.provenance.get(key) ?? {};
+    this.provenance.set(key, prov);
+    const mutable = existing as unknown as Record<string, unknown>;
+
+    for (const [field, value] of Object.entries(patch)) {
+      if (field === 'dedupKey' || field === 'source') continue;
+      if (value === undefined) continue; // this job didn't observe this field
+
+      if (value === null && NULLABLE_FIELDS.has(field) && mutable[field] != null) {
+        continue; // never let "no information" clobber a known value
+      }
+
+      const lastWrite = prov[field];
+      if (lastWrite !== undefined && patch.scrapedAt < lastWrite) continue; // stale/out-of-order patch
+
+      mutable[field] = value;
+      prov[field] = patch.scrapedAt;
+    }
+
+    const srcIdx = existing.sources.findIndex((s) => s.source === patch.source.source);
+    if (srcIdx === -1) existing.sources.push(patch.source);
+    else existing.sources[srcIdx] = patch.source;
+  }
+
+  async flush(): Promise<void> {
+    await mkdir(this.dataDir, { recursive: true });
+    await atomicWrite(join(this.dataDir, 'tenders.json'), JSON.stringify([...this.merged.values()]));
+    await atomicWrite(
+      join(this.dataDir, 'field-provenance.json'),
+      JSON.stringify(Object.fromEntries(this.provenance)),
+    );
   }
 
   getMeta(source: string): SourceMeta {

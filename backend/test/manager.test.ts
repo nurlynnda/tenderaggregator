@@ -2,21 +2,19 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Tender } from '@tms/shared';
+import type { TenderPatch } from '@tms/shared';
 import type { ScrapeHooks, ScrapeScope, ScraperAdapter } from '../src/scrapers/types.js';
 import { TenderRepository } from '../src/storage/repository.js';
 import { ScrapeManager } from '../src/scrape/manager.js';
 
 const NOW = () => '2026-07-07T12:00:00.000Z';
 
-function makeTender(id: number): Tender {
+function makePatch(id: number): TenderPatch {
   return {
-    id: `fake:${id}`, source: 'fake', sourceId: String(id),
-    referenceNo: `REF/${id}`, dedupKey: `REF/${id}`, title: `T${id}`,
-    sourceUrl: `https://example.com/${id}`, status: 'open', procurementType: 'quotation',
-    ministry: null, agency: null, category: null, fieldCodes: [],
-    advertisedDate: null, closingDate: null, indicativePrice: null,
-    currency: 'MYR', events: [], raw: {}, scrapedAt: NOW(),
+    dedupKey: `REF/${id}`, referenceNo: `REF/${id}`, title: `T${id}`,
+    status: 'open', procurementType: 'quotation',
+    scrapedAt: NOW(),
+    source: { source: 'fake', sourceId: String(id), sourceUrl: `https://example.com/${id}` },
   };
 }
 
@@ -44,11 +42,11 @@ describe('ScrapeManager', () => {
     expect(mgr.status()).toEqual({ state: 'idle' });
   });
 
-  it('runs a scrape: upserts batches, reports done, stamps lastScrapedAt', async () => {
+  it('runs a scrape: merges batches, reports done, stamps lastScrapedAt and total', async () => {
     const repo = await freshRepo();
     const adapter = fakeAdapter(async (_scope, hooks) => {
       hooks.onProgress({ source: 'fake', job: 'open-quotation', jobsCompleted: 0, jobsTotal: 1, currentPage: 1, lastPage: 1 });
-      await hooks.onBatch([makeTender(1), makeTender(2)]);
+      await hooks.onBatch([makePatch(1), makePatch(2)]);
     });
     const mgr = new ScrapeManager([adapter], repo, { now: NOW });
     await mgr.runToCompletion('open');
@@ -56,6 +54,7 @@ describe('ScrapeManager', () => {
     expect(repo.getAll()).toHaveLength(2);
     expect(repo.getMeta('fake').lastScrapedAt).toBe(NOW());
     expect(repo.getMeta('fake').lastArchiveBackfillAt).toBeNull();
+    expect(repo.getMeta('fake').total).toBe(2);
   });
 
   it('stamps lastArchiveBackfillAt when scope covers archive', async () => {
@@ -99,13 +98,13 @@ describe('ScrapeManager', () => {
       const repo = await freshRepo();
       const originalFlush = repo.flush.bind(repo);
       let flushCount = 0;
-      repo.flush = async (source: string) => {
+      repo.flush = async () => {
         flushCount += 1;
-        return originalFlush(source);
+        return originalFlush();
       };
       const adapter = fakeAdapter(async (_s, hooks) => {
         for (let i = 0; i < pages; i += 1) {
-          await hooks.onBatch([makeTender(i)]);
+          await hooks.onBatch([makePatch(i)]);
         }
       });
       const mgr = new ScrapeManager([adapter], repo, { now: NOW });
@@ -122,7 +121,7 @@ describe('ScrapeManager', () => {
   it('sets failed state with error message; keeps previously flushed batches', async () => {
     const repo = await freshRepo();
     const adapter = fakeAdapter(async (_s, hooks) => {
-      await hooks.onBatch([makeTender(1)]);
+      await hooks.onBatch([makePatch(1)]);
       throw new Error('fetch failed after 3 attempts: url');
     });
     const mgr = new ScrapeManager([adapter], repo, { now: NOW, flushEveryPages: 1 });

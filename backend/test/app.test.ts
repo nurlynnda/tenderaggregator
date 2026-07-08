@@ -3,22 +3,22 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Tender } from '@tms/shared';
+import type { TenderPatch } from '@tms/shared';
 import { createApp } from '../src/api/app.js';
 import { ScrapeManager } from '../src/scrape/manager.js';
 import type { ScrapeHooks } from '../src/scrapers/types.js';
 import { TenderRepository } from '../src/storage/repository.js';
 
 let seq = 0;
-function t(overrides: Partial<Tender> = {}): Tender {
+function patch(overrides: Partial<TenderPatch> = {}): TenderPatch {
   seq += 1;
   return {
-    id: `myprocurement:${seq}`, source: 'myprocurement', sourceId: String(seq),
-    referenceNo: `REF/${seq}`, dedupKey: `REF/${seq}`, title: `TENDER ${seq}`,
-    sourceUrl: `https://example.com/${seq}`, status: 'open', procurementType: 'quotation',
+    dedupKey: `REF/${seq}`, referenceNo: `REF/${seq}`, title: `TENDER ${seq}`,
+    status: 'open', procurementType: 'quotation',
+    scrapedAt: '2026-07-07T00:00:00.000Z',
+    source: { source: 'myprocurement', sourceId: String(seq), sourceUrl: `https://example.com/${seq}` },
     ministry: 'KEMENTERIAN A', agency: null, category: null, fieldCodes: [],
     advertisedDate: '2026-07-01', closingDate: null, indicativePrice: null,
-    currency: 'MYR', events: [], raw: {}, scrapedAt: '2026-07-07T00:00:00.000Z',
     ...overrides,
   };
 }
@@ -42,7 +42,7 @@ describe('API', () => {
   });
 
   it('GET /api/tenders returns paginated, filterable results', async () => {
-    repo.upsertMany('myprocurement', [t({ title: 'BUMBUNG GELANGGANG' }), t({ status: 'closed' }), t()]);
+    repo.mergeMany([patch({ title: 'BUMBUNG GELANGGANG' }), patch({ status: 'closed' }), patch()]);
     const all = await request(app).get('/api/tenders');
     expect(all.status).toBe(200);
     expect(all.body.total).toBe(3);
@@ -55,30 +55,40 @@ describe('API', () => {
     expect(searched.body.total).toBe(1);
   });
 
+  it('GET /api/tenders supports fieldCode and hasWinners filters', async () => {
+    repo.mergeMany([
+      patch({ fieldCodes: ['220801'] }),
+      patch({ winners: [{ name: 'X', price: 1 }] }),
+      patch(),
+    ]);
+    const byField = await request(app).get('/api/tenders?fieldCode=22');
+    expect(byField.body.total).toBe(1);
+    const awarded = await request(app).get('/api/tenders?hasWinners=true');
+    expect(awarded.body.total).toBe(1);
+  });
+
   it('GET /api/tenders rejects invalid query params with 400', async () => {
     const res = await request(app).get('/api/tenders?status=maybe');
     expect(res.status).toBe(400);
     expect(res.body.error).toBeDefined();
   });
 
-  it('GET /api/tenders/facets returns distinct values', async () => {
-    repo.upsertMany('myprocurement', [t(), t({ ministry: 'KEMENTERIAN B' })]);
+  it('GET /api/tenders/facets returns distinct values including fieldCodes', async () => {
+    repo.mergeMany([patch(), patch({ ministry: 'KEMENTERIAN B', fieldCodes: ['010101'] })]);
     const res = await request(app).get('/api/tenders/facets');
     expect(res.status).toBe(200);
     expect(res.body.ministries).toEqual(['KEMENTERIAN A', 'KEMENTERIAN B']);
+    expect(res.body.fieldCodes).toEqual(['010101']);
   });
 
-  it('GET /api/tenders/:id returns tender with alsoAvailableFrom; 404 when missing', async () => {
-    const a = t({ dedupKey: 'SAME' });
-    const b = t({ id: 'other:1', source: 'other', dedupKey: 'SAME' });
-    repo.upsertMany('myprocurement', [a]);
-    repo.upsertMany('other', [b]);
-    const res = await request(app).get(`/api/tenders/${encodeURIComponent(a.id)}`);
+  it('GET /api/tenders/:refNo returns { tender } by reference number; 404 when missing', async () => {
+    repo.mergeMany([patch({ dedupKey: 'UTHM/54/P/02', referenceNo: 'UTHM/54/P/02' })]);
+    const res = await request(app).get(`/api/tenders/${encodeURIComponent('UTHM/54/P/02')}`);
     expect(res.status).toBe(200);
-    expect(res.body.tender.id).toBe(a.id);
-    expect(res.body.alsoAvailableFrom).toHaveLength(1);
+    expect(res.body.tender.referenceNo).toBe('UTHM/54/P/02');
+    expect(res.body.alsoAvailableFrom).toBeUndefined(); // sources[] on the tender itself replaces this
 
-    const missing = await request(app).get('/api/tenders/nope:1');
+    const missing = await request(app).get('/api/tenders/NOPE');
     expect(missing.status).toBe(404);
   });
 

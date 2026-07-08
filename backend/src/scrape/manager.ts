@@ -44,11 +44,6 @@ export class ScrapeManager {
     this.running = true;
     this.current = { state: 'running' };
     const now = this.opts.now ?? (() => new Date().toISOString());
-    // Archive/all backfills are ~1280 pages at design scale; flushing the whole in-memory
-    // map every page would make cumulative write bytes scale O(N^2). Flush less often for
-    // large scopes (fewer full rewrites, larger redo window on crash — safe since upserts
-    // are idempotent and archive backfill is resumable). Open scope is small (~58 pages)
-    // and users want fast visible progress, so it keeps a tight interval.
     const flushEvery =
       this.opts.flushEveryPages ??
       (scope === 'open' ? (this.opts.flushEveryPagesOpen ?? 10) : (this.opts.flushEveryPagesArchive ?? 50));
@@ -60,17 +55,20 @@ export class ScrapeManager {
           onProgress: (p) => {
             this.current = { state: 'running', ...p };
           },
-          onBatch: async (tenders) => {
-            this.repo.upsertMany(adapter.name, tenders);
+          onBatch: async (patches) => {
+            this.repo.mergeMany(patches);
             pagesSinceFlush += 1;
             if (pagesSinceFlush >= flushEvery) {
-              await this.repo.flush(adapter.name);
+              await this.repo.flush();
               pagesSinceFlush = 0;
             }
           },
         });
-        await this.repo.flush(adapter.name);
-        const stamp: Parameters<TenderRepository['setMeta']>[1] = { lastScrapedAt: now() };
+        await this.repo.flush();
+        const stamp: Parameters<TenderRepository['setMeta']>[1] = {
+          lastScrapedAt: now(),
+          total: this.repo.getSourceCount(adapter.name),
+        };
         if (scope === 'all' || scope === 'archive') stamp.lastArchiveBackfillAt = now();
         await this.repo.setMeta(adapter.name, stamp);
       }

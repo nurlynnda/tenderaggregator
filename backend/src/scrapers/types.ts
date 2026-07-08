@@ -1,4 +1,4 @@
-import type { Tender } from '@tms/shared';
+import type { TenderPatch } from '@tms/shared';
 
 export type ScrapeScope = 'all' | 'open' | 'archive';
 
@@ -13,7 +13,7 @@ export interface ScrapeProgress {
 
 export interface ScrapeHooks {
   onProgress: (p: ScrapeProgress) => void;
-  onBatch: (tenders: Tender[]) => Promise<void>;
+  onBatch: (patches: TenderPatch[]) => Promise<void>;
 }
 
 export interface ScraperAdapter {

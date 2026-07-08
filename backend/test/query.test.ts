@@ -1,36 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import type { Tender } from '@tms/shared';
-import { buildFacets, dedupeTenders, findById, queryTenders } from '../src/query/tenders.js';
+import { buildFacets, queryTenders } from '../src/query/tenders.js';
 
 let seq = 0;
 function t(overrides: Partial<Tender> = {}): Tender {
   seq += 1;
   return {
-    id: `myprocurement:${seq}`, source: 'myprocurement', sourceId: String(seq),
-    referenceNo: `REF/${seq}`, dedupKey: `REF/${seq}`, title: `TENDER ${seq}`,
-    sourceUrl: `https://example.com/${seq}`, status: 'open', procurementType: 'quotation',
+    dedupKey: `REF/${seq}`, referenceNo: `REF/${seq}`, title: `TENDER ${seq}`,
+    status: 'open', procurementType: 'quotation',
     ministry: 'KEMENTERIAN A', agency: 'AGENSI A', category: 'Bekalan', fieldCodes: [],
     advertisedDate: '2026-07-01', closingDate: '2026-07-15', indicativePrice: 1000,
-    currency: 'MYR', events: [], raw: {}, scrapedAt: '2026-07-07T00:00:00.000Z',
+    currency: 'MYR', events: [], winners: null, raw: {}, scrapedAt: '2026-07-07T00:00:00.000Z',
+    sources: [{ source: 'myprocurement', sourceId: String(seq), sourceUrl: `https://example.com/${seq}` }],
     ...overrides,
   };
 }
-
-describe('dedupeTenders', () => {
-  it('keeps one canonical record per dedupKey, preferring most non-null fields', () => {
-    const sparse = t({ id: 'src2:1', source: 'src2', dedupKey: 'SAME', ministry: null, agency: null });
-    const rich = t({ dedupKey: 'SAME' });
-    expect(dedupeTenders([sparse, rich])).toEqual([rich]);
-  });
-  it('ties broken by newest scrapedAt', () => {
-    const older = t({ dedupKey: 'SAME', scrapedAt: '2026-07-01T00:00:00.000Z' });
-    const newer = t({ dedupKey: 'SAME', scrapedAt: '2026-07-07T00:00:00.000Z' });
-    expect(dedupeTenders([older, newer])).toEqual([newer]);
-  });
-  it('never merges distinct dedupKeys', () => {
-    expect(dedupeTenders([t(), t()])).toHaveLength(2);
-  });
-});
 
 describe('queryTenders', () => {
   it('searches title and referenceNo case-insensitively', () => {
@@ -44,16 +28,34 @@ describe('queryTenders', () => {
       t({ ministry: 'KEMENTERIAN B' }),
       t({ status: 'closed' }),
       t({ procurementType: 'tender' }),
-      t({ source: 'other', id: 'other:1' }),
       t({ agency: 'AGENSI B' }),
       t({ category: 'Kerja' }),
+      t({ fieldCodes: ['220801'] }),
+      t({ winners: [{ name: 'X', price: 1 }] }),
     ];
     expect(queryTenders(data, { ministry: 'KEMENTERIAN B' }).total).toBe(1);
     expect(queryTenders(data, { status: 'closed' }).total).toBe(1);
     expect(queryTenders(data, { procurementType: 'tender' }).total).toBe(1);
-    expect(queryTenders(data, { source: 'other' }).total).toBe(1);
     expect(queryTenders(data, { agency: 'AGENSI B' }).total).toBe(1);
     expect(queryTenders(data, { category: 'Kerja' }).total).toBe(1);
+    expect(queryTenders(data, { hasWinners: true }).total).toBe(1);
+  });
+
+  it('filters by field code prefix at any level', () => {
+    const data = [
+      t({ fieldCodes: ['220801'] }),
+      t({ fieldCodes: ['010101'] }),
+      t({ fieldCodes: ['220899'] }),
+    ];
+    expect(queryTenders(data, { fieldCode: '22' }).total).toBe(2);
+    expect(queryTenders(data, { fieldCode: '2208' }).total).toBe(2);
+    expect(queryTenders(data, { fieldCode: '220801' }).total).toBe(1);
+    expect(queryTenders(data, { fieldCode: '21' }).total).toBe(0);
+  });
+
+  it('treats hasWinners as "winners is a non-empty array", not merely non-null', () => {
+    const data = [t({ winners: [] }), t({ winners: [{ name: 'X', price: null }] }), t({ winners: null })];
+    expect(queryTenders(data, { hasWinners: true }).total).toBe(1);
   });
 
   it('sorts by price desc with nulls last, paginates with total', () => {
@@ -72,32 +74,26 @@ describe('queryTenders', () => {
     expect(page.pageSize).toBe(20);
     expect(queryTenders(data, { pageSize: 5000 }).pageSize).toBe(100);
   });
+
+  it('does not mutate the input array while sorting', () => {
+    const data = [t({ advertisedDate: '2026-01-01' }), t({ advertisedDate: '2026-06-01' })];
+    const copy = [...data];
+    queryTenders(data, { sortOrder: 'asc' });
+    expect(data).toEqual(copy);
+  });
 });
 
 describe('buildFacets', () => {
-  it('returns sorted distinct values, omitting nulls', () => {
+  it('returns sorted distinct values, omitting nulls, including fieldCodes', () => {
     const data = [
-      t({ ministry: 'Z', agency: null, category: 'Kerja', procurementType: 'tender' }),
-      t({ ministry: 'A' }),
+      t({ ministry: 'Z', agency: null, category: 'Kerja', procurementType: 'tender', fieldCodes: ['220801', '010101'] }),
+      t({ ministry: 'A', fieldCodes: ['010101'] }),
       t({ ministry: 'A' }),
     ];
     const f = buildFacets(data);
     expect(f.ministries).toEqual(['A', 'Z']);
     expect(f.agencies).toEqual(['AGENSI A']);
-    expect(f.sources).toEqual(['myprocurement']);
     expect(f.procurementTypes).toEqual(['quotation', 'tender']);
-  });
-});
-
-describe('findById', () => {
-  it('returns the tender plus other-source records sharing its dedupKey', () => {
-    const a = t({ dedupKey: 'SAME' });
-    const b = t({ id: 'other:9', source: 'other', dedupKey: 'SAME' });
-    const res = findById([a, b], a.id);
-    expect(res?.tender.id).toBe(a.id);
-    expect(res?.alsoAvailableFrom.map((x) => x.id)).toEqual(['other:9']);
-  });
-  it('returns null for unknown id', () => {
-    expect(findById([t()], 'nope:1')).toBeNull();
+    expect(f.fieldCodes).toEqual(['010101', '220801']);
   });
 });
