@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { AnyNode, Cheerio } from 'cheerio';
-import { TenderSchema, computeDedupKey, type Tender, type TenderEvent } from '@tms/shared';
+import { TenderPatchSchema, computeDedupKey, type TenderPatch, type TenderEvent } from '@tms/shared';
 import { parseDdMmYyyy, parseRmPrice, splitFieldCodes } from '../../parsing/text.js';
 
 export interface JobContext {
@@ -11,10 +11,10 @@ export interface JobContext {
 
 const SOURCE = 'myprocurement';
 
-export function parseListingHtml(html: string, ctx: JobContext): Tender[] {
+export function parseListingHtml(html: string, ctx: JobContext): TenderPatch[] {
   const $ = cheerio.load(html);
   const now = ctx.now ?? (() => new Date().toISOString());
-  const tenders: Tender[] = [];
+  const patches: TenderPatch[] = [];
 
   $('div[x-data]').each((_, el) => {
     const card = $(el);
@@ -23,15 +23,15 @@ export function parseListingHtml(html: string, ctx: JobContext): Tender[] {
 
     const candidate = parseCard($, card, ctx, now());
     if (!candidate) return;
-    const result = TenderSchema.safeParse(candidate);
+    const result = TenderPatchSchema.safeParse(candidate);
     if (!result.success) {
       console.warn(`[myprocurement] skipping invalid card: ${result.error.message}`);
       return;
     }
-    tenders.push(result.data);
+    patches.push(result.data);
   });
 
-  return tenders;
+  return patches;
 }
 
 function parseCard(
@@ -85,13 +85,15 @@ function parseCard(
     });
   });
 
-  const id = `${SOURCE}:${sourceId}`;
+  const fallback = `${SOURCE}:${sourceId}`;
   return {
-    dedupKey: computeDedupKey(referenceNo, id),
+    dedupKey: computeDedupKey(referenceNo, fallback),
     referenceNo,
     title,
     status: ctx.status,
     procurementType: ctx.procurementType,
+    scrapedAt,
+    source: { source: SOURCE, sourceId, sourceUrl },
     ministry: raw['Kementerian'] || null,
     agency: raw['Agensi'] || null,
     category: raw['Kategori Perolehan'] || null,
@@ -99,12 +101,8 @@ function parseCard(
     advertisedDate: parseDdMmYyyy(raw['Tarikh Pelawaan']),
     closingDate: parseDdMmYyyy(raw['Tarikh Tutup Pelawaan']),
     indicativePrice: parseRmPrice(raw['Harga Indikatif Jabatan']),
-    currency: 'MYR' as const,
     events,
-    winners: null,
     raw,
-    scrapedAt,
-    sources: [{ source: SOURCE, sourceId, sourceUrl }],
   };
 }
 

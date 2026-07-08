@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
-import { TenderSchema } from '@tms/shared';
+import { TenderPatchSchema } from '@tms/shared';
 import { parseListingHtml, type JobContext } from '../src/scrapers/myprocurement/parseListing.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -71,12 +71,13 @@ const CARD_HTML = `<div>
 </div>`;
 
 describe('parseListingHtml — embedded card, exact values', () => {
-  it('extracts every field from a card', () => {
+  it('extracts every field from a card, shaped as a TenderPatch', () => {
     const [t] = parseListingHtml(CARD_HTML, OPEN_Q);
     expect(t).toBeDefined();
-    expect(t!.sources[0]!.source).toBe('myprocurement');
-    expect(t!.sources[0]!.sourceId).toBe('789195');
-    expect(t!.sources[0]!.sourceUrl).toBe('https://myprocurement.treasury.gov.my/advertisements/quotation/71ebb6ee');
+    expect(t!.source).toEqual({
+      source: 'myprocurement', sourceId: '789195',
+      sourceUrl: 'https://myprocurement.treasury.gov.my/advertisements/quotation/71ebb6ee',
+    });
     expect(t!.referenceNo).toBe('UTHM/54(KTKEM)/P/02/023/2026(1)');
     expect(t!.dedupKey).toBe('UTHM/54(KTKEM)/P/02/023/2026(1)');
     expect(t!.title).toBe('MAKMAL ELEKTRIK & ELEKTRONIK 2'); // entity decoded
@@ -92,9 +93,10 @@ describe('parseListingHtml — embedded card, exact values', () => {
     expect(t!.events).toEqual([
       { label: 'Lawatan Tapak', date: '2026-07-10', address: 'MAKMAL OR, BLOK A, STRIDE, KAJANG, SELANGOR' },
     ]);
-    expect(t!.raw['No. Sebut Harga']).toBe('UTHM/54(KTKEM)/P/02/023/2026(1)');
-    expect(t!.raw['Harga Indikatif Jabatan']).toBe('RM 28,800.00');
+    expect(t!.raw!['No. Sebut Harga']).toBe('UTHM/54(KTKEM)/P/02/023/2026(1)');
+    expect(t!.raw!['Harga Indikatif Jabatan']).toBe('RM 28,800.00');
     expect(t!.scrapedAt).toBe('2026-07-07T12:00:00.000Z');
+    expect(() => TenderPatchSchema.parse(t)).not.toThrow();
   });
 
   it('tags status/procurementType from the job context, not page text', () => {
@@ -124,7 +126,7 @@ describe('parseListingHtml — edge cases for branch coverage', () => {
   it('ignores non-card x-data wrappers (e.g. pagination controls)', () => {
     const withPagination = `<div x-data="{ page: 1 }"><span>1</span></div>${CARD_HTML}`;
     const [t] = parseListingHtml(withPagination, OPEN_Q);
-    expect(t!.sources[0]!.sourceId).toBe('789195');
+    expect(t!.source.sourceId).toBe('789195');
   });
 
   it('falls back to Date.now() when ctx.now is not provided', () => {
@@ -139,7 +141,17 @@ describe('parseListingHtml — edge cases for branch coverage', () => {
       '<td class="w-full"></td>',
     );
     const [t] = parseListingHtml(noAddress, OPEN_Q);
-    expect(t!.events[0]!.address).toBeNull();
+    expect(t!.events![0]!.address).toBeNull();
+  });
+
+  it('falls back to the source:sourceId composite for dedupKey when referenceNo is empty', () => {
+    const noRef = CARD_HTML.replace(
+      '<span class="font-bold">No. Sebut Harga</span>: UTHM/54(KTKEM)/P/02/023/2026(1)',
+      '<span class="font-bold">No. Sebut Harga</span>: ',
+    );
+    const [t] = parseListingHtml(noRef, OPEN_Q);
+    expect(t!.referenceNo).toBe('');
+    expect(t!.dedupKey).toBe('myprocurement:789195');
   });
 });
 
@@ -152,15 +164,15 @@ const FIXTURES: Array<{ file: string; ctx: JobContext }> = [
 
 describe('parseListingHtml — live fixtures, structural invariants', () => {
   for (const { file, ctx } of FIXTURES) {
-    it(`parses every card in ${file} into schema-valid tenders`, () => {
+    it(`parses every card in ${file} into schema-valid patches`, () => {
       const raw = JSON.parse(readFileSync(join(__dirname, 'fixtures', file), 'utf8'));
-      const tenders = parseListingHtml(raw.html, ctx);
-      expect(tenders.length).toBeGreaterThan(0);
-      // Every select-procurement id in the HTML must yield a parsed tender: nothing missed.
+      const patches = parseListingHtml(raw.html, ctx);
+      expect(patches.length).toBeGreaterThan(0);
+      // Every select-procurement id in the HTML must yield a parsed patch: nothing missed.
       const idsInHtml = new Set([...raw.html.matchAll(/select-procurement'?,?\s*\{\s*id:\s*(\d+)/g)].map((m) => m[1]));
-      expect(new Set(tenders.map((t) => t.sources[0]!.sourceId))).toEqual(idsInHtml);
-      for (const t of tenders) {
-        expect(() => TenderSchema.parse(t)).not.toThrow();
+      expect(new Set(patches.map((t) => t.source.sourceId))).toEqual(idsInHtml);
+      for (const t of patches) {
+        expect(() => TenderPatchSchema.parse(t)).not.toThrow();
         expect(t.status).toBe(ctx.status);
         expect(t.procurementType).toBe(ctx.procurementType);
         if (t.advertisedDate) expect(t.advertisedDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
