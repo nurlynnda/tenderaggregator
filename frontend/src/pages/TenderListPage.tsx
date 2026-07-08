@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { Tender } from '../api/types';
 import { fetchFacets, fetchTenders } from '../api/client';
+import FieldCodeFilter from '../components/FieldCodeFilter';
 
 type SortBy = 'advertisedDate' | 'closingDate' | 'indicativePrice';
 
@@ -9,20 +11,27 @@ const FILTERS = [
   { key: 'ministry', label: 'Ministry', facet: 'ministries' },
   { key: 'agency', label: 'Agency', facet: 'agencies' },
   { key: 'category', label: 'Category', facet: 'categories' },
-  { key: 'source', label: 'Source', facet: 'sources' },
   { key: 'procurementType', label: 'Type', facet: 'procurementTypes' },
 ] as const;
 
-function formatPrice(v: number | null): string {
-  return v === null ? '—' : `RM ${v.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`;
+function formatWinners(winners: Tender['winners']): string {
+  if (!winners || winners.length === 0) return '—';
+  return winners
+    .map((w) => `${w.name} — ${w.price === null ? 'RM —' : `RM ${w.price.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`}`)
+    .join(', ');
 }
 
-export default function MainPage() {
+interface Props {
+  status: 'open' | 'closed';
+  hasWinners?: boolean;
+}
+
+export default function TenderListPage({ status, hasWinners = false }: Props) {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState('');
+  const [fieldCode, setFieldCode] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('advertisedDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -33,7 +42,10 @@ export default function MainPage() {
   }, [searchInput]);
 
   const params: Record<string, string> = {
-    search, status, sortBy, sortOrder, page: String(page), ...filters,
+    search, status, sortBy, sortOrder, page: String(page),
+    ...(hasWinners ? { hasWinners: 'true' } : {}),
+    ...(fieldCode ? { fieldCode } : {}),
+    ...filters,
   };
   const { data: pageData } = useQuery({
     queryKey: ['tenders', params],
@@ -75,18 +87,7 @@ export default function MainPage() {
             </select>
           </label>
         ))}
-        <label className="flex flex-col text-sm gap-1">
-          Status
-          <select
-            className="border rounded-md px-2 py-2"
-            value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-          >
-            <option value="">All</option>
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-          </select>
-        </label>
+        <FieldCodeFilter value={fieldCode} onChange={(c) => { setFieldCode(c); setPage(1); }} />
       </div>
 
       <div className="overflow-x-auto border rounded-lg">
@@ -96,32 +97,34 @@ export default function MainPage() {
               <th className="px-3 py-2">Title</th>
               <th className="px-3 py-2">Reference No</th>
               <th className="px-3 py-2">Ministry</th>
-              <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">
                 <button onClick={() => toggleSort('closingDate')}>Closing Date{sortIndicator('closingDate')}</button>
               </th>
-              <th className="px-3 py-2">
-                <button onClick={() => toggleSort('indicativePrice')}>Price{sortIndicator('indicativePrice')}</button>
-              </th>
-              <th className="px-3 py-2">Source</th>
+              <th className="px-3 py-2">Field Code</th>
+              {hasWinners && <th className="px-3 py-2">Won</th>}
             </tr>
           </thead>
           <tbody>
             {(pageData?.items ?? []).map((t) => (
               <tr
-                key={t.id}
-                onClick={() => navigate(`/tenders/${encodeURIComponent(t.id)}`)}
+                key={t.dedupKey}
+                onClick={() => navigate(`/tenders/${encodeURIComponent(t.referenceNo)}`)}
                 className="border-t cursor-pointer hover:bg-blue-50"
               >
                 <td className="px-3 py-2 font-medium max-w-xl">{t.title}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{t.referenceNo}</td>
                 <td className="px-3 py-2">{t.ministry ?? '—'}</td>
-                <td className="px-3 py-2 capitalize">{t.status}</td>
                 <td className="px-3 py-2 capitalize">{t.procurementType}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{t.closingDate ?? '—'}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{formatPrice(t.indicativePrice)}</td>
-                <td className="px-3 py-2">{t.source}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {t.fieldCodes.length === 0
+                    ? '—'
+                    : t.fieldCodes.length === 1
+                      ? t.fieldCodes[0]
+                      : `${t.fieldCodes[0]} +${t.fieldCodes.length - 1}`}
+                </td>
+                {hasWinners && <td className="px-3 py-2">{formatWinners(t.winners)}</td>}
               </tr>
             ))}
           </tbody>
