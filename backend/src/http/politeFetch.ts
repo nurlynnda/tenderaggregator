@@ -7,6 +7,7 @@ export interface PoliteFetcherOptions {
   fetchImpl?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
   random?: () => number;
+  responseType?: 'json' | 'text';
 }
 
 const USER_AGENT = 'TenderAggregatorBot/1.0';
@@ -21,6 +22,8 @@ export function createPoliteFetcher(opts: PoliteFetcherOptions = {}) {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const sleep = opts.sleep ?? defaultSleep;
   const random = opts.random ?? Math.random;
+  const responseType = opts.responseType ?? 'json';
+  const accept = responseType === 'text' ? 'text/html' : 'application/json';
 
   return async function politeFetch(url: string): Promise<unknown> {
     let attempt = 0;
@@ -29,8 +32,8 @@ export function createPoliteFetcher(opts: PoliteFetcherOptions = {}) {
     while (attempt < maxAttempts) {
       await sleep(baseDelayMs + random() * jitterMs);
       try {
-        const res = await fetchImpl(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } });
-        if (res.ok) return await res.json();
+        const res = await fetchImpl(url, { headers: { 'User-Agent': USER_AGENT, Accept: accept } });
+        if (res.ok) return await (responseType === 'text' ? res.text() : res.json());
 
         if (res.status === 429 || res.status === 503) {
           const retryAfter = Number(res.headers.get('Retry-After'));

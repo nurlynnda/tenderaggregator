@@ -73,3 +73,22 @@ describe('createPoliteFetcher', () => {
     await expect(f('http://x/a')).rejects.toThrow('fetch failed after 3 attempts');
   });
 });
+
+describe('createPoliteFetcher — text mode', () => {
+  it('returns raw text and sends Accept: text/html when responseType is "text"', async () => {
+    const { sleep, fetchImpl } = setup([new Response('<html>hi</html>', { status: 200 })]);
+    const f = createPoliteFetcher({ responseType: 'text', fetchImpl, sleep, random: () => 0 });
+    await expect(f('http://x/a')).resolves.toBe('<html>hi</html>');
+    const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Record<string, string>).Accept).toBe('text/html');
+  });
+
+  it('still retries/backs off the same way in text mode', async () => {
+    const { sleeps, sleep, fetchImpl } = setup([new Error('boom'), new Response('ok', { status: 200 })]);
+    const f = createPoliteFetcher({
+      responseType: 'text', baseDelayMs: 0, jitterMs: 0, fetchImpl, sleep, random: () => 0,
+    });
+    await expect(f('http://x/a')).resolves.toBe('ok');
+    expect(sleeps.filter((ms) => ms > 0)).toEqual([1000]);
+  });
+});
