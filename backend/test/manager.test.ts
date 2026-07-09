@@ -151,4 +151,23 @@ describe('ScrapeManager', () => {
     expect(repo.getAll()).toHaveLength(1); // flushed page survived
     expect(repo.getMeta('fake').lastScrapedAt).toBeNull(); // not stamped on failure
   });
+
+  it('runs only the named adapter when sourceName is given, leaving other adapters untouched', async () => {
+    const repo = await freshRepo();
+    const calls: string[] = [];
+    const adapterA: ScraperAdapter = { name: 'a', scrape: async () => { calls.push('a'); }, archiveJobNames: () => [] };
+    const adapterB: ScraperAdapter = { name: 'b', scrape: async () => { calls.push('b'); }, archiveJobNames: () => [] };
+    const mgr = new ScrapeManager([adapterA, adapterB], repo, { now: NOW });
+    await mgr.runToCompletion('open', { sourceName: 'b' });
+    expect(calls).toEqual(['b']);
+  });
+
+  it('listSources reports name, lastScrapedAt, lastArchiveBackfillAt, and total per adapter', async () => {
+    const repo = await freshRepo();
+    const adapter = fakeAdapter(async (_s, hooks) => { await hooks.onBatch([makePatch(1)]); });
+    const mgr = new ScrapeManager([adapter], repo, { now: NOW });
+    expect(mgr.listSources()).toEqual([{ name: 'fake', lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0 }]);
+    await mgr.runToCompletion('open');
+    expect(mgr.listSources()).toEqual([{ name: 'fake', lastScrapedAt: NOW(), lastArchiveBackfillAt: null, total: 1 }]);
+  });
 });

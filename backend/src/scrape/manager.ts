@@ -33,13 +33,20 @@ export class ScrapeManager {
     return { ...this.current };
   }
 
-  start(scope: ScrapeScope): boolean {
+  listSources(): Array<{ name: string; lastScrapedAt: string | null; lastArchiveBackfillAt: string | null; total: number }> {
+    return this.adapters.map((a) => {
+      const meta = this.repo.getMeta(a.name);
+      return { name: a.name, lastScrapedAt: meta.lastScrapedAt, lastArchiveBackfillAt: meta.lastArchiveBackfillAt, total: meta.total };
+    });
+  }
+
+  start(scope: ScrapeScope, opts: { sourceName?: string } = {}): boolean {
     if (this.running) return false;
-    void this.runToCompletion(scope);
+    void this.runToCompletion(scope, opts);
     return true;
   }
 
-  async runToCompletion(scope: ScrapeScope): Promise<void> {
+  async runToCompletion(scope: ScrapeScope, opts: { sourceName?: string } = {}): Promise<void> {
     if (this.running) return;
     this.running = true;
     this.current = { state: 'running' };
@@ -47,9 +54,10 @@ export class ScrapeManager {
     const flushEvery =
       this.opts.flushEveryPages ??
       (scope === 'open' ? (this.opts.flushEveryPagesOpen ?? 10) : (this.opts.flushEveryPagesArchive ?? 50));
+    const adapters = opts.sourceName ? this.adapters.filter((a) => a.name === opts.sourceName) : this.adapters;
 
     try {
-      for (const adapter of this.adapters) {
+      for (const adapter of adapters) {
         let pagesSinceFlush = 0;
         const completedArchiveJobs = new Set(this.repo.getMeta(adapter.name).completedArchiveJobs);
         await adapter.scrape(
