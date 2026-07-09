@@ -43,10 +43,12 @@ export class MyProcurementAdapter implements ScraperAdapter {
     });
 
     for (const [jobIndex, job] of jobs.entries()) {
+      if (opts.isCancelled?.()) return;
       const name = jobName(job);
       let page = 1;
       let lastPage = 1;
       do {
+        if (opts.isCancelled?.()) return;
         const url = `${BASE_URL}?page=${page}&itemsPerPage=${ITEMS_PER_PAGE}&type=${job.type}&category=${job.category}`;
         const body = ListingResponse.parse(await this.fetcher(url));
         lastPage = body.lastPage;

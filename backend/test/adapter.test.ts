@@ -157,4 +157,20 @@ describe('MyProcurementAdapter', () => {
       'closed-tender', 'closed-requisition', 'closed-tender-results',
     ]);
   });
+
+  it('stops before the next page when isCancelled reports true, without throwing', async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      const page = Number(new URL(url).searchParams.get('page'));
+      return pageResponse([page], 3); // 3 pages available, so an early stop is observable
+    });
+    const adapter = new MyProcurementAdapter(fetcher);
+    let cancelAfterFirstBatch = false;
+    const batches: TenderPatch[][] = [];
+    await adapter.scrape('open', {
+      onProgress: () => {},
+      onBatch: async (t) => { batches.push(t); cancelAfterFirstBatch = true; },
+    }, { isCancelled: () => cancelAfterFirstBatch });
+    expect(fetcher).toHaveBeenCalledTimes(1); // only the very first page fetched before stopping
+    expect(batches).toHaveLength(1);
+  });
 });

@@ -48,6 +48,7 @@ export class SpanAdapter implements ScraperAdapter {
     });
 
     for (const [jobIndex, job] of jobs.entries()) {
+      if (opts.isCancelled?.()) return;
       const name = jobName(job);
       const url = `${BASE_URL}/${job.year}`;
       const html = HtmlResponse.parse(await this.fetcher(url));

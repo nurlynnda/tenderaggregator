@@ -92,4 +92,17 @@ describe('SpanAdapter — job model', () => {
     await expect(adapter.scrape('open', { onProgress: () => {}, onBatch })).rejects.toThrow('fetch failed');
     expect(onBatch).not.toHaveBeenCalled();
   });
+
+  it('stops before the next year job when isCancelled reports true, without throwing', async () => {
+    const fetcher = vi.fn(async () => pageHtml(1, 'REF/1'));
+    const adapter = new SpanAdapter(fetcher, FIXED_NOW);
+    let cancelAfterFirst = false;
+    const batches: TenderPatch[][] = [];
+    await adapter.scrape('archive', {
+      onProgress: () => {},
+      onBatch: async (t) => { batches.push(t); cancelAfterFirst = true; },
+    }, { isCancelled: () => cancelAfterFirst });
+    expect(fetcher).toHaveBeenCalledTimes(1); // only the first (2025) year fetched before stopping
+    expect(batches).toHaveLength(1);
+  });
 });
