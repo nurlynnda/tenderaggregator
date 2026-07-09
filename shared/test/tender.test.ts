@@ -86,6 +86,11 @@ describe('TenderSchema', () => {
     });
     expect(TenderSchema.parse(t).events).toHaveLength(1);
   });
+
+  it('accepts procurementType: null (source could not classify the tender type)', () => {
+    const t = makeTender({ procurementType: null });
+    expect(TenderSchema.parse(t)).toEqual(t);
+  });
 });
 
 describe('TenderPatchSchema', () => {
@@ -104,6 +109,11 @@ describe('TenderPatchSchema', () => {
   it('rejects a patch missing required identity fields', () => {
     const { title: _title, ...withoutTitle } = makePatch();
     expect(TenderPatchSchema.safeParse(withoutTitle).success).toBe(false);
+  });
+
+  it('accepts procurementType: null (source could not classify the tender type)', () => {
+    const patch = makePatch({ procurementType: null });
+    expect(TenderPatchSchema.parse(patch)).toEqual(patch);
   });
 });
 
