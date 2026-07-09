@@ -4,74 +4,74 @@ import { decideStartupPolicy } from '../src/startupPolicy.js';
 const ARCHIVE_JOBS = ['closed-quotation', 'closed-tender', 'closed-requisition'];
 
 describe('decideStartupPolicy', () => {
-  it('needs a full scrape when no adapter has ever run', () => {
+  it('needs a full scrape when this adapter has never run', () => {
     const result = decideStartupPolicy({
-      adapterNames: ['myprocurement'],
-      hasSource: () => false,
-      mergedCount: 0,
-      getArchiveJobNames: () => ARCHIVE_JOBS,
-      getCompletedArchiveJobs: () => [],
+      hasSource: false,
+      mergedIsEmpty: true,
+      archiveJobNames: ARCHIVE_JOBS,
+      completedArchiveJobs: [],
     });
     expect(result.needsFull).toBe(true);
-    expect(result.emptyStoreMismatch).toBe(false); // no source ever ran, so nothing to mismatch
+    expect(result.emptyStoreMismatch).toBe(false); // never ran, so nothing to mismatch
   });
 
-  it('forces a full rescrape when the merged store is empty despite a source reporting prior completion (the bug)', () => {
-    // Reproduces stale/partial data dir: myprocurement/meta.json exists with a completed
-    // archive backfill, but the top-level tenders.json is missing/empty (e.g. migrated from
-    // the old per-source layout, or corrupted). Previously this silently short-circuited to
-    // "nothing to do", serving 0 tenders forever.
+  it('forces a full rescrape when the merged store is empty despite this adapter reporting prior completion (the original bug)', () => {
     const result = decideStartupPolicy({
-      adapterNames: ['myprocurement'],
-      hasSource: (name) => name === 'myprocurement',
-      mergedCount: 0,
-      getArchiveJobNames: () => ARCHIVE_JOBS,
-      getCompletedArchiveJobs: () => ARCHIVE_JOBS,
+      hasSource: true,
+      mergedIsEmpty: true,
+      archiveJobNames: ARCHIVE_JOBS,
+      completedArchiveJobs: ARCHIVE_JOBS,
     });
     expect(result.needsFull).toBe(true);
     expect(result.emptyStoreMismatch).toBe(true);
   });
 
-  it('does not need a full scrape or backfill when the merged store is populated and every archive job has completed', () => {
+  it('does not need a full scrape or backfill when this adapter has run and every archive job has completed', () => {
     const result = decideStartupPolicy({
-      adapterNames: ['myprocurement'],
-      hasSource: (name) => name === 'myprocurement',
-      mergedCount: 42,
-      getArchiveJobNames: () => ARCHIVE_JOBS,
-      getCompletedArchiveJobs: () => ARCHIVE_JOBS,
+      hasSource: true,
+      mergedIsEmpty: false,
+      archiveJobNames: ARCHIVE_JOBS,
+      completedArchiveJobs: ARCHIVE_JOBS,
     });
     expect(result.needsFull).toBe(false);
     expect(result.needsBackfill).toBe(false);
     expect(result.emptyStoreMismatch).toBe(false);
   });
 
-  it('needs only a backfill resume when data exists but no archive job has completed yet', () => {
+  it('needs only a backfill resume when this adapter has data but no archive job has completed yet', () => {
     const result = decideStartupPolicy({
-      adapterNames: ['myprocurement'],
-      hasSource: (name) => name === 'myprocurement',
-      mergedCount: 10,
-      getArchiveJobNames: () => ARCHIVE_JOBS,
-      getCompletedArchiveJobs: () => [],
+      hasSource: true,
+      mergedIsEmpty: false,
+      archiveJobNames: ARCHIVE_JOBS,
+      completedArchiveJobs: [],
     });
     expect(result.needsFull).toBe(false);
     expect(result.needsBackfill).toBe(true);
     expect(result.emptyStoreMismatch).toBe(false);
   });
 
-  it('needs a backfill resume when a NEW archive job kind was added after a prior backfill already completed (the gap this fixes)', () => {
-    // Reproduces the reported bug: results-quotation/results-tender were added to the adapter's
-    // job list after the original 3 archive jobs had already completed and been stamped. A
-    // single completion flag would treat the source as "done forever"; per-job tracking
-    // correctly notices the 2 new job names are missing from completedArchiveJobs.
+  it('needs a backfill resume when a NEW archive job kind was added after a prior backfill already completed', () => {
     const result = decideStartupPolicy({
-      adapterNames: ['myprocurement'],
-      hasSource: (name) => name === 'myprocurement',
-      mergedCount: 84773,
-      getArchiveJobNames: () => [...ARCHIVE_JOBS, 'closed-quotation-results', 'closed-tender-results'],
-      getCompletedArchiveJobs: () => ARCHIVE_JOBS, // only the 3 original jobs were ever completed
+      hasSource: true,
+      mergedIsEmpty: false,
+      archiveJobNames: [...ARCHIVE_JOBS, 'closed-quotation-results', 'closed-tender-results'],
+      completedArchiveJobs: ARCHIVE_JOBS,
     });
     expect(result.needsFull).toBe(false);
     expect(result.needsBackfill).toBe(true);
     expect(result.emptyStoreMismatch).toBe(false);
+  });
+
+  it('a brand-new adapter needs a full scrape even when the merged store is non-empty because another adapter already has data (the startup bug this fixes)', () => {
+    // Reproduces the real bug: e.g. myprocurement already has data (mergedIsEmpty=false),
+    // but a newly added adapter (e.g. span) has never run itself (hasSource=false). It must
+    // still get needsFull=true, independent of any other adapter's state.
+    const result = decideStartupPolicy({
+      hasSource: false,
+      mergedIsEmpty: false,
+      archiveJobNames: ['closed-2025', 'closed-2024'],
+      completedArchiveJobs: [],
+    });
+    expect(result.needsFull).toBe(true);
   });
 });
