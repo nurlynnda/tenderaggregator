@@ -21,6 +21,8 @@ export interface ScrapeHooks {
 export interface ScrapeOptions {
   /** Closed/archive job names to skip (already completed in a prior backfill run). Open jobs are never skipped. */
   skipJobNames?: Set<string>;
+  /** Adapters check this between jobs/pages and stop (returning normally, not throwing) when it reports true. */
+  isCancelled?: () => boolean;
 }
 
 export interface ScraperAdapter {

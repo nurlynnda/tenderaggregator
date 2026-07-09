@@ -2,7 +2,7 @@ import type { ScrapeScope, ScraperAdapter } from '../scrapers/types.js';
 import type { TenderRepository } from '../storage/repository.js';
 
 export interface ScrapeStatus {
-  state: 'idle' | 'running' | 'done' | 'failed';
+  state: 'idle' | 'running' | 'done' | 'failed' | 'cancelled';
   source?: string;
   job?: string;
   jobsCompleted?: number;
@@ -15,6 +15,7 @@ export interface ScrapeStatus {
 export class ScrapeManager {
   private current: ScrapeStatus = { state: 'idle' };
   private running = false;
+  private cancelRequested = false;
 
   constructor(
     private readonly adapters: ScraperAdapter[],
@@ -33,6 +34,12 @@ export class ScrapeManager {
     return { ...this.current };
   }
 
+  cancel(): boolean {
+    if (!this.running) return false;
+    this.cancelRequested = true;
+    return true;
+  }
+
   listSources(): Array<{ name: string; lastScrapedAt: string | null; lastArchiveBackfillAt: string | null; total: number }> {
     return this.adapters.map((a) => {
       const meta = this.repo.getMeta(a.name);
@@ -49,6 +56,7 @@ export class ScrapeManager {
   async runToCompletion(scope: ScrapeScope, opts: { sourceName?: string } = {}): Promise<void> {
     if (this.running) return;
     this.running = true;
+    this.cancelRequested = false;
     this.current = { state: 'running' };
     const now = this.opts.now ?? (() => new Date().toISOString());
     const flushEvery =
@@ -58,6 +66,7 @@ export class ScrapeManager {
 
     try {
       for (const adapter of adapters) {
+        if (this.cancelRequested) break;
         let pagesSinceFlush = 0;
         const completedArchiveJobs = new Set(this.repo.getMeta(adapter.name).completedArchiveJobs);
         await adapter.scrape(
@@ -82,9 +91,10 @@ export class ScrapeManager {
               await this.repo.setMeta(adapter.name, { completedArchiveJobs: [...completedArchiveJobs] });
             },
           },
-          { skipJobNames: completedArchiveJobs },
+          { skipJobNames: completedArchiveJobs, isCancelled: () => this.cancelRequested },
         );
         await this.repo.flush();
+        if (this.cancelRequested) break; // run didn't finish — don't stamp meta for this adapter
         const stamp: Parameters<TenderRepository['setMeta']>[1] = {
           lastScrapedAt: now(),
           total: this.repo.getSourceCount(adapter.name),
@@ -92,7 +102,7 @@ export class ScrapeManager {
         if (scope === 'all' || scope === 'archive') stamp.lastArchiveBackfillAt = now();
         await this.repo.setMeta(adapter.name, stamp);
       }
-      this.current = { state: 'done' };
+      this.current = this.cancelRequested ? { state: 'cancelled' } : { state: 'done' };
     } catch (err) {
       this.current = { state: 'failed', error: err instanceof Error ? err.message : String(err) };
     } finally {

@@ -170,4 +170,37 @@ describe('ScrapeManager', () => {
     await mgr.runToCompletion('open');
     expect(mgr.listSources()).toEqual([{ name: 'fake', lastScrapedAt: NOW(), lastArchiveBackfillAt: null, total: 1 }]);
   });
+
+  it("cancel() stops a running scrape before the next adapter, keeps flushed data, and reports state 'cancelled'", async () => {
+    const repo = await freshRepo();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let sawCancelled: boolean | undefined;
+    const adapterA: ScraperAdapter = {
+      name: 'a',
+      scrape: async (_s, hooks, opts) => {
+        await hooks.onBatch([makePatch(1)]);
+        await gate; // block here until the test releases it
+        sawCancelled = opts?.isCancelled?.();
+      },
+      archiveJobNames: () => [],
+    };
+    const adapterB: ScraperAdapter = { name: 'b', scrape: async () => { throw new Error('b should never run'); }, archiveJobNames: () => [] };
+    const mgr = new ScrapeManager([adapterA, adapterB], repo, { now: NOW, flushEveryPages: 1 });
+    mgr.start('open');
+    await waitUntil(() => mgr.status().state === 'running');
+    expect(mgr.cancel()).toBe(true);
+    release();
+    await waitUntil(() => mgr.status().state !== 'running');
+    expect(mgr.status().state).toBe('cancelled');
+    expect(sawCancelled).toBe(true);
+    expect(repo.getAll()).toHaveLength(1); // flushed batch survived
+    expect(repo.getMeta('a').lastScrapedAt).toBeNull(); // not stamped, run didn't finish
+  });
+
+  it('cancel() returns false when nothing is running', async () => {
+    const repo = await freshRepo();
+    const mgr = new ScrapeManager([], repo, { now: NOW });
+    expect(mgr.cancel()).toBe(false);
+  });
 });
