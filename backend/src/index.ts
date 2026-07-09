@@ -19,31 +19,33 @@ async function main() {
   ];
   const manager = new ScrapeManager(adapters, repo);
 
-  // Startup scrape policy (spec: Startup section):
-  // - no data at all              -> full scrape (open + archive backfill)
-  // - merged store empty but a    -> full scrape (self-heal: some source claims prior
-  //   source claims prior work       completion, e.g. stale/partial data dir, but the
-  //                                  merged tenders.json has nothing in it)
-  // - data but backfill unset     -> resume archive backfill only
-  // - otherwise                   -> nothing
-  const { needsFull, needsBackfill, emptyStoreMismatch } = decideStartupPolicy({
-    adapterNames: adapters.map((a) => a.name),
-    hasSource: (name) => repo.hasSource(name),
-    mergedCount: repo.getAll().length,
-    getArchiveJobNames: (name) => adapters.find((a) => a.name === name)?.archiveJobNames() ?? [],
-    getCompletedArchiveJobs: (name) => repo.getMeta(name).completedArchiveJobs,
-  });
-  if (emptyStoreMismatch) {
-    console.warn(
-      '[startup] merged tender store is empty but a source reports prior completion — forcing full rescrape',
-    );
+  // Startup scrape policy, decided PER ADAPTER (see startupPolicy.ts and
+  // docs/superpowers/specs/2026-07-10-scrape-settings-page-design.md): a brand-new adapter
+  // always gets its own full scrape, regardless of whether other adapters already have data.
+  const mergedIsEmpty = repo.getAll().length === 0;
+  const plan: Array<{ name: string; scope: 'all' | 'archive' }> = [];
+  for (const adapter of adapters) {
+    const { needsFull, needsBackfill, emptyStoreMismatch } = decideStartupPolicy({
+      hasSource: repo.hasSource(adapter.name),
+      mergedIsEmpty,
+      archiveJobNames: adapter.archiveJobNames(),
+      completedArchiveJobs: repo.getMeta(adapter.name).completedArchiveJobs,
+    });
+    if (emptyStoreMismatch) {
+      console.warn(
+        `[startup] ${adapter.name}: merged tender store is empty but this source reports prior completion — forcing full rescrape`,
+      );
+    }
+    if (needsFull) plan.push({ name: adapter.name, scope: 'all' });
+    else if (needsBackfill) plan.push({ name: adapter.name, scope: 'archive' });
   }
-  if (needsFull) {
-    console.log('[startup] no data found — starting full scrape (open + archive backfill)');
-    manager.start('all');
-  } else if (needsBackfill) {
-    console.log('[startup] archive backfill incomplete — resuming');
-    manager.start('archive');
+  if (plan.length > 0) {
+    void (async () => {
+      for (const { name, scope } of plan) {
+        console.log(`[startup] ${name}: running ${scope} scrape`);
+        await manager.runToCompletion(scope, { sourceName: name });
+      }
+    })();
   }
 
   createApp({ repo, manager }).listen(PORT, () => {
