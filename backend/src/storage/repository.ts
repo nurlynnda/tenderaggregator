@@ -22,7 +22,8 @@ const DEFAULT_META: SourceMeta = {
 // (fieldCodes, events) and always-present identity fields don't need this guard: they never
 // carry null, only omission (absent key) or an empty array, both handled by the generic loop.
 const NULLABLE_FIELDS = new Set([
-  'ministry', 'agency', 'category', 'advertisedDate', 'closingDate', 'indicativePrice', 'winners',
+  'ministry', 'agency', 'category', 'advertisedDate', 'closingDate', 'indicativePrice',
+  'winners', 'procurementType',
 ]);
 
 type ProvenanceMap = Record<string, string>; // fieldName -> scrapedAt ISO of the patch that last wrote it

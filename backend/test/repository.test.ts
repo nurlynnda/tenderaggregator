@@ -60,6 +60,37 @@ describe('TenderRepository', () => {
     expect(repo.getAll()[0]!.ministry).toBe('KNOWN');
   });
 
+  it('never lets a different source\'s unclassifiable (null) procurementType clobber an already-known type', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([makePatch({ procurementType: 'tender', scrapedAt: '2026-07-01T00:00:00.000Z' })]);
+    repo.mergeMany([makePatch({
+      procurementType: null,
+      scrapedAt: '2026-07-07T00:00:00.000Z',
+      source: { source: 'span', sourceId: '9', sourceUrl: 'https://www.span.gov.my/tender/view/9' },
+    })]);
+    expect(repo.getAll()[0]!.procurementType).toBe('tender');
+  });
+
+  it('never lets a different source without fieldCodes/winners erase values another source already contributed', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([makePatch({
+      fieldCodes: ['E05'],
+      winners: [{ name: 'X', price: 1 }],
+      scrapedAt: '2026-07-01T00:00:00.000Z',
+    })]);
+    // A real span.gov.my patch never observes fieldCodes/winners, so it omits those keys
+    // entirely rather than sending [] — this proves that omission, not a source, protects them.
+    repo.mergeMany([makePatch({
+      scrapedAt: '2026-07-07T00:00:00.000Z',
+      source: { source: 'span', sourceId: '9', sourceUrl: 'https://www.span.gov.my/tender/view/9' },
+    })]);
+    const [t] = repo.getAll();
+    expect(t!.fieldCodes).toEqual(['E05']);
+    expect(t!.winners).toEqual([{ name: 'X', price: 1 }]);
+  });
+
   it('ignores an older (out-of-order) patch for a field already set by a newer one', async () => {
     const { repo } = freshRepo();
     await repo.load();
