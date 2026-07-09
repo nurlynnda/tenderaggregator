@@ -7,10 +7,16 @@ export interface Facets {
   procurementTypes: string[]; fieldCodes: string[];
 }
 export interface ScrapeStatus {
-  state: 'idle' | 'running' | 'done' | 'failed';
+  state: 'idle' | 'running' | 'done' | 'failed' | 'cancelled';
   source?: string; job?: string;
   jobsCompleted?: number; jobsTotal?: number;
   currentPage?: number; lastPage?: number;
   error?: string;
+}
+export interface ScrapeSource {
+  name: string;
+  lastScrapedAt: string | null;
+  lastArchiveBackfillAt: string | null;
+  total: number;
 }
 export interface TenderDetail { tender: Tender }

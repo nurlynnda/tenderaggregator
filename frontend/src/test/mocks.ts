@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import type { Facets, ScrapeStatus, Tender, TenderPage } from '../api/types';
+import type { Facets, ScrapeSource, ScrapeStatus, Tender, TenderPage } from '../api/types';
 
 export function makeTender(overrides: Partial<Tender> = {}): Tender {
   return {
@@ -27,6 +27,10 @@ export const defaultFacets: Facets = {
   fieldCodes: ['060501'],
 };
 export const idleStatus: ScrapeStatus = { state: 'idle' };
+export const defaultSources: ScrapeSource[] = [
+  { name: 'myprocurement', lastScrapedAt: '2026-07-07T00:00:00.000Z', lastArchiveBackfillAt: '2026-07-01T00:00:00.000Z', total: 5775 },
+  { name: 'span', lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0 },
+];
 
 export const handlers = [
   http.get('/api/tenders/facets', () => HttpResponse.json(defaultFacets)),
@@ -37,6 +41,8 @@ export const handlers = [
   http.get('/api/tenders', () => HttpResponse.json(defaultPage)),
   http.get('/api/scrape/status', () => HttpResponse.json(idleStatus)),
   http.post('/api/scrape', () => HttpResponse.json({ started: true }, { status: 202 })),
+  http.get('/api/sources', () => HttpResponse.json(defaultSources)),
+  http.post('/api/scrape/cancel', () => HttpResponse.json({ cancelled: true })),
 ];
 
 export const server = setupServer(...handlers);

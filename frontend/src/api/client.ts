@@ -1,4 +1,4 @@
-import type { Facets, ScrapeStatus, TenderDetail, TenderPage } from './types';
+import type { Facets, ScrapeSource, ScrapeStatus, TenderDetail, TenderPage } from './types';
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -23,8 +23,22 @@ export function fetchScrapeStatus(): Promise<ScrapeStatus> {
   return getJson('/api/scrape/status');
 }
 
-export async function triggerScrape(): Promise<void> {
-  const res = await fetch('/api/scrape', { method: 'POST' });
+export function fetchSources(): Promise<ScrapeSource[]> {
+  return getJson('/api/sources');
+}
+
+export async function triggerScrape(params: { source?: string; scope?: 'open' | 'full' } = {}): Promise<void> {
+  const res = await fetch('/api/scrape', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
   if (res.status === 409) throw new Error('scrape already running');
   if (!res.ok) throw new Error(`scrape trigger failed: ${res.status}`);
+}
+
+export async function cancelScrape(): Promise<void> {
+  const res = await fetch('/api/scrape/cancel', { method: 'POST' });
+  if (res.status === 409) throw new Error('nothing running');
+  if (!res.ok) throw new Error(`cancel failed: ${res.status}`);
 }
