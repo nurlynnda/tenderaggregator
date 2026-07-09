@@ -58,6 +58,19 @@ describe('queryTenders', () => {
     expect(queryTenders(data, { hasWinners: true }).total).toBe(1);
   });
 
+  it('filters by contractor name (case-insensitive substring), matching any winner on the tender', () => {
+    const data = [
+      t({ winners: [{ name: 'SAFWORKS SDN. BHD.', price: 100 }] }),
+      t({ winners: [{ name: 'BBL GLOBAL ENTERPRISE', price: 200 }, { name: 'SAFWORKS SDN. BHD.', price: 50 }] }),
+      t({ winners: [{ name: 'SUCEME ENTERPRISE', price: 300 }] }),
+      t({ winners: null }),
+    ];
+    expect(queryTenders(data, { contractor: 'SAFWORKS SDN. BHD.' }).total).toBe(2);
+    expect(queryTenders(data, { contractor: 'safworks' }).total).toBe(2); // case-insensitive
+    expect(queryTenders(data, { contractor: 'SUCEME' }).total).toBe(1); // partial match
+    expect(queryTenders(data, { contractor: 'NOBODY' }).total).toBe(0);
+  });
+
   it('sorts by price desc with nulls last, paginates with total', () => {
     const data = [t({ indicativePrice: 5 }), t({ indicativePrice: null }), t({ indicativePrice: 99 })];
     const page = queryTenders(data, { sortBy: 'indicativePrice', sortOrder: 'desc', page: 1, pageSize: 2 });

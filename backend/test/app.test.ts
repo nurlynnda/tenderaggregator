@@ -67,6 +67,16 @@ describe('API', () => {
     expect(awarded.body.total).toBe(1);
   });
 
+  it('GET /api/tenders supports a contractor filter matching any winner name', async () => {
+    repo.mergeMany([
+      patch({ winners: [{ name: 'SAFWORKS SDN. BHD.', price: 1 }] }),
+      patch({ winners: [{ name: 'SUCEME ENTERPRISE', price: 2 }] }),
+      patch(),
+    ]);
+    const res = await request(app).get('/api/tenders?contractor=SAFWORKS SDN. BHD.');
+    expect(res.body.total).toBe(1);
+  });
+
   it('GET /api/tenders?hasWinners=false returns unfiltered results, not awarded-only', async () => {
     repo.mergeMany([patch({ winners: [{ name: 'X', price: 1 }] }), patch(), patch()]);
     const res = await request(app).get('/api/tenders?hasWinners=false');

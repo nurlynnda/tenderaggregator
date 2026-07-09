@@ -23,11 +23,11 @@ export default function FieldCodeFilter({ value, onChange }: Props) {
   const displayValue = open ? query : selected ? `${selected.code} — ${selected.name}` : '';
 
   return (
-    <div className="relative flex flex-col text-sm gap-1">
+    <div className="relative flex flex-col text-[10px] gap-1">
       <label htmlFor="field-code-input">Field Code</label>
       <input
         id="field-code-input"
-        className="border rounded-md px-2 py-2"
+        className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
         placeholder="All"
         value={displayValue}
         onFocus={() => { setOpen(true); setQuery(''); }}
@@ -44,12 +44,12 @@ export default function FieldCodeFilter({ value, onChange }: Props) {
         </button>
       )}
       {open && (
-        <ul className="absolute top-full z-10 mt-1 max-h-64 w-96 overflow-y-auto border rounded-md bg-white shadow-lg">
+        <ul className="absolute top-full z-10 mt-1 max-h-64 w-96 overflow-y-auto border border-[#e0e0e0] rounded-md bg-white shadow-lg">
           {filtered.map((n) => (
             <li key={n.code}>
               <button
                 type="button"
-                className="w-full text-left px-2 py-1 hover:bg-blue-50"
+                className="w-full text-left px-2 py-1 text-[10px] hover:bg-blue-50"
                 style={{ paddingLeft: `${8 + (n.path.length - 1) * 16}px` }}
                 onMouseDown={() => { onChange(n.code); setQuery(''); setOpen(false); }}
               >

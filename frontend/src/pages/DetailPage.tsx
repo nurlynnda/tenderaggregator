@@ -31,9 +31,9 @@ export default function DetailPage() {
   const t = data.tender;
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-4xl space-y-6 text-[12px]">
       <Link to="/open" className="text-blue-700 underline">← Back to all tenders</Link>
-      <h1 className="text-xl font-bold">{t.title}</h1>
+      <h1 className="font-semibold">{t.title}</h1>
       <a
         href={t.sources[0]!.sourceUrl}
         target="_blank"
@@ -43,7 +43,7 @@ export default function DetailPage() {
         View on official site ↗
       </a>
 
-      <div className="border rounded-lg p-4">
+      <div className="border border-[#e0e0e0] rounded-lg p-4">
         <Field label="Reference No" value={t.referenceNo} />
         <Field label="Status" value={<span className="capitalize">{t.status}</span>} />
         <Field label="Procurement Type" value={<span className="capitalize">{t.procurementType}</span>} />
@@ -66,13 +66,17 @@ export default function DetailPage() {
       {t.events.length > 0 && (
         <div>
           <h2 className="font-semibold mb-2">Events</h2>
-          <table className="w-full text-sm border rounded-lg">
+          <table className="data-table w-full border border-[#e0e0e0] rounded-lg">
             <thead className="bg-gray-100 text-left">
-              <tr><th className="px-3 py-2">Event</th><th className="px-3 py-2">Date</th><th className="px-3 py-2">Address</th></tr>
+              <tr>
+                <th className="px-3 py-2 uppercase tracking-wide">Event</th>
+                <th className="px-3 py-2 uppercase tracking-wide">Date</th>
+                <th className="px-3 py-2 uppercase tracking-wide">Address</th>
+              </tr>
             </thead>
             <tbody>
               {t.events.map((e, i) => (
-                <tr key={i} className="border-t">
+                <tr key={i}>
                   <td className="px-3 py-2">{e.label}</td>
                   <td className="px-3 py-2">{e.date ?? '—'}</td>
                   <td className="px-3 py-2">{e.address ?? '—'}</td>

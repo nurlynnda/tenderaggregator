@@ -14,6 +14,7 @@ const QuerySchema = z.object({
   procurementType: z.enum(['quotation', 'tender', 'requisition']).optional(),
   fieldCode: z.string().optional(),
   hasWinners: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
+  contractor: z.string().optional(),
   sortBy: z.enum(['advertisedDate', 'closingDate', 'indicativePrice']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
   page: z.coerce.number().int().min(1).optional(),

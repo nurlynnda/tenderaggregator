@@ -9,6 +9,7 @@ export interface TenderQuery {
   procurementType?: 'quotation' | 'tender' | 'requisition';
   fieldCode?: string;
   hasWinners?: boolean;
+  contractor?: string;
   sortBy?: 'advertisedDate' | 'closingDate' | 'indicativePrice';
   sortOrder?: 'asc' | 'desc';
   page?: number;
@@ -48,6 +49,10 @@ export function queryTenders(tenders: Tender[], q: TenderQuery): TenderPage {
   if (q.procurementType) items = items.filter((t) => t.procurementType === q.procurementType);
   if (q.fieldCode) items = items.filter((t) => t.fieldCodes.some((c) => c.startsWith(q.fieldCode!)));
   if (q.hasWinners) items = items.filter((t) => t.winners !== null && t.winners.length > 0);
+  if (q.contractor) {
+    const needle = q.contractor.toLowerCase();
+    items = items.filter((t) => t.winners?.some((w) => w.name.toLowerCase().includes(needle)) ?? false);
+  }
 
   const sortBy = q.sortBy ?? 'advertisedDate';
   const dir = (q.sortOrder ?? 'desc') === 'asc' ? 1 : -1;

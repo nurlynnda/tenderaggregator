@@ -14,10 +14,15 @@ const FILTERS = [
   { key: 'procurementType', label: 'Type', facet: 'procurementTypes' },
 ] as const;
 
-function formatWinners(winners: Tender['winners']): string {
+function formatContractors(winners: Tender['winners']): string {
+  if (!winners || winners.length === 0) return '—';
+  return winners.map((w) => w.name).join(', ');
+}
+
+function formatPricesWon(winners: Tender['winners']): string {
   if (!winners || winners.length === 0) return '—';
   return winners
-    .map((w) => `${w.name} — ${w.price === null ? 'RM —' : `RM ${w.price.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`}`)
+    .map((w) => (w.price === null ? 'RM —' : `RM ${w.price.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`))
     .join(', ');
 }
 
@@ -30,6 +35,8 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [contractorInput, setContractorInput] = useState('');
+  const [contractor, setContractor] = useState('');
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [fieldCode, setFieldCode] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('advertisedDate');
@@ -41,9 +48,15 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
     return () => clearTimeout(h);
   }, [searchInput]);
 
+  useEffect(() => {
+    const h = setTimeout(() => { setContractor(contractorInput); setPage(1); }, 300);
+    return () => clearTimeout(h);
+  }, [contractorInput]);
+
   const params: Record<string, string> = {
     search, status, sortBy, sortOrder, page: String(page),
     ...(hasWinners ? { hasWinners: 'true' } : {}),
+    ...(hasWinners && contractor ? { contractor } : {}),
     ...(fieldCode ? { fieldCode } : {}),
     ...filters,
   };
@@ -69,13 +82,13 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
           placeholder="Search title or reference no…"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          className="border rounded-md px-3 py-2 w-72"
+          className="border border-[#e0e0e0] rounded-md px-3 py-2 w-72 text-[10px]"
         />
         {FILTERS.map((f) => (
-          <label key={f.key} className="flex flex-col text-sm gap-1">
+          <label key={f.key} className="flex flex-col text-[10px] gap-1">
             {f.label}
             <select
-              className="border rounded-md px-2 py-2"
+              className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
               value={filters[f.key] ?? ''}
               onChange={(e) => {
                 setFilters((prev) => ({ ...prev, [f.key]: e.target.value }));
@@ -87,22 +100,35 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
             </select>
           </label>
         ))}
+        {hasWinners && (
+          <label className="flex flex-col text-[10px] gap-1">
+            Contractor
+            <input
+              type="text"
+              placeholder="Search contractor…"
+              className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
+              value={contractorInput}
+              onChange={(e) => setContractorInput(e.target.value)}
+            />
+          </label>
+        )}
         <FieldCodeFilter value={fieldCode} onChange={(c) => { setFieldCode(c); setPage(1); }} />
       </div>
 
-      <div className="overflow-x-auto border rounded-lg">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto border border-[#e0e0e0] rounded-lg">
+        <table className="data-table w-full text-[10px]">
           <thead className="bg-gray-100 text-left">
             <tr>
-              <th className="px-3 py-2">Title</th>
-              <th className="px-3 py-2">Reference No</th>
-              <th className="px-3 py-2">Ministry</th>
-              <th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">
+              <th className="px-3 py-2 uppercase tracking-wide">Title</th>
+              <th className="px-3 py-2 uppercase tracking-wide">Reference No</th>
+              <th className="px-3 py-2 uppercase tracking-wide">Ministry</th>
+              <th className="px-3 py-2 uppercase tracking-wide">Type</th>
+              <th className="px-3 py-2 uppercase tracking-wide">
                 <button onClick={() => toggleSort('closingDate')}>Closing Date{sortIndicator('closingDate')}</button>
               </th>
-              <th className="px-3 py-2">Field Code</th>
-              {hasWinners && <th className="px-3 py-2">Won</th>}
+              <th className="px-3 py-2 uppercase tracking-wide">Field Code</th>
+              {hasWinners && <th className="px-3 py-2 uppercase tracking-wide">Contractor</th>}
+              {hasWinners && <th className="px-3 py-2 uppercase tracking-wide">Price Won</th>}
             </tr>
           </thead>
           <tbody>
@@ -110,7 +136,7 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
               <tr
                 key={t.dedupKey}
                 onClick={() => navigate(`/tenders/${encodeURIComponent(t.referenceNo)}`)}
-                className="border-t cursor-pointer hover:bg-blue-50"
+                className="cursor-pointer hover:bg-blue-50"
               >
                 <td className="px-3 py-2 font-medium max-w-xl">{t.title}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{t.referenceNo}</td>
@@ -124,7 +150,8 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
                       ? t.fieldCodes[0]
                       : `${t.fieldCodes[0]} +${t.fieldCodes.length - 1}`}
                 </td>
-                {hasWinners && <td className="px-3 py-2">{formatWinners(t.winners)}</td>}
+                {hasWinners && <td className="px-3 py-2">{formatContractors(t.winners)}</td>}
+                {hasWinners && <td className="px-3 py-2 whitespace-nowrap">{formatPricesWon(t.winners)}</td>}
               </tr>
             ))}
           </tbody>
@@ -132,17 +159,17 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
       </div>
 
       <div className="flex items-center gap-4">
-        <span>{pageData?.total ?? 0} tenders</span>
+        <span className="text-xs">{pageData?.total ?? 0} tenders</span>
         <button
-          className="border rounded-md px-3 py-1 disabled:opacity-50"
+          className="border rounded-md px-3 py-1 text-sm disabled:opacity-50"
           disabled={page <= 1}
           onClick={() => setPage((p) => p - 1)}
         >
           Previous
         </button>
-        <span>Page {page} of {totalPages}</span>
+        <span className="text-xs">Page {page} of {totalPages}</span>
         <button
-          className="border rounded-md px-3 py-1 disabled:opacity-50"
+          className="border rounded-md px-3 py-1 text-sm disabled:opacity-50"
           disabled={page >= totalPages}
           onClick={() => setPage((p) => p + 1)}
         >

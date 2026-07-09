@@ -44,7 +44,7 @@ describe('TenderListPage', () => {
     expect(screen.queryByLabelText(/^status/i)).not.toBeInTheDocument();
   });
 
-  it('sends hasWinners=true and shows a Won column with formatted winners', async () => {
+  it('sends hasWinners=true and shows separate Contractor and Price Won columns', async () => {
     const requests: string[] = [];
     server.use(http.get('/api/tenders', ({ request }) => {
       requests.push(request.url);
@@ -55,14 +55,36 @@ describe('TenderListPage', () => {
     }));
     renderList(<TenderListPage status="closed" hasWinners />);
     await waitFor(() => expect(requests.some((u) => u.includes('hasWinners=true'))).toBe(true));
-    expect(screen.getByRole('columnheader', { name: /won/i })).toBeInTheDocument();
-    expect(await screen.findByText(/EVERLASTING LUCK SDN\. BHD\. — RM 72,000\.00/)).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /contractor/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /price won/i })).toBeInTheDocument();
+    expect(await screen.findByText('EVERLASTING LUCK SDN. BHD.')).toBeInTheDocument();
+    expect(await screen.findByText('RM 72,000.00')).toBeInTheDocument();
   });
 
-  it('does not show a Won column when hasWinners is not set', async () => {
+  it('does not show Contractor/Price Won columns when hasWinners is not set', async () => {
     renderList(<TenderListPage status="open" />);
     await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
-    expect(screen.queryByRole('columnheader', { name: /won/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /contractor/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /price won/i })).not.toBeInTheDocument();
+  });
+
+  it('shows a free-text Contractor filter only on hasWinners pages, sending it as a query param (debounced)', async () => {
+    const requests: string[] = [];
+    server.use(http.get('/api/tenders', ({ request }) => {
+      requests.push(request.url);
+      return HttpResponse.json(defaultPage);
+    }));
+    renderList(<TenderListPage status="closed" hasWinners />);
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+    await userEvent.type(await screen.findByLabelText(/contractor/i), 'safworks');
+    await waitFor(() =>
+      expect(requests.some((u) => u.includes('contractor=safworks'))).toBe(true), { timeout: 2000 });
+  });
+
+  it('does not show a Contractor filter when hasWinners is not set', async () => {
+    renderList(<TenderListPage status="open" />);
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+    expect(screen.queryByLabelText(/contractor/i)).not.toBeInTheDocument();
   });
 
   it('populates filter dropdowns from facets and refetches on change', async () => {

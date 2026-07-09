@@ -7,22 +7,22 @@ import TenderListPage from './pages/TenderListPage';
 const queryClient = new QueryClient();
 
 function navLinkClass({ isActive }: { isActive: boolean }): string {
-  return `block px-4 py-2 rounded-md ${isActive ? 'bg-blue-800 text-white' : 'text-blue-900 hover:bg-blue-50'}`;
+  return `block px-4 py-2 rounded-md text-[12px] ${isActive ? 'bg-blue-800 text-white font-medium' : 'text-blue-900 hover:bg-blue-50'}`;
 }
 
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <div className="flex min-h-screen">
-          <nav className="w-56 shrink-0 bg-white border-r p-4 space-y-1">
-            <div className="text-lg font-semibold text-blue-900 mb-4">Malaysia Tender Aggregator</div>
+        <div className="flex h-screen">
+          <nav className="w-56 shrink-0 bg-white border-r border-[#e0e0e0] p-4 space-y-1 overflow-y-auto">
+            <div className="text-hero font-semibold text-blue-900 mb-4">Malaysia Tender Aggregator</div>
             <NavLink to="/open" className={navLinkClass}>Open Tenders</NavLink>
             <NavLink to="/closed" className={navLinkClass}>Closed Tenders</NavLink>
             <NavLink to="/awarded" className={navLinkClass}>Awarded Tenders</NavLink>
           </nav>
-          <div className="flex-1">
-            <header className="bg-blue-900 text-white px-6 py-4 flex items-center justify-end">
+          <div className="flex-1 flex flex-col overflow-y-auto">
+            <header className="bg-blue-900 text-white px-6 py-4 flex items-center justify-end shrink-0">
               <ScrapeBanner />
             </header>
             <main className="p-6">

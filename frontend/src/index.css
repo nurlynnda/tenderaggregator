@@ -1,1 +1,32 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: 'Roobert', 'Inter', system-ui, sans-serif;
+  --text-lang: 0.8125rem; /* 13px */
+  --text-hero: 1rem; /* 16px mobile */
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+  }
+}
+
+@layer utilities {
+  .text-hero {
+    font-size: var(--text-hero);
+  }
+  @media (min-width: 768px) {
+    .text-hero {
+      font-size: 1.125rem; /* 18px desktop */
+    }
+  }
+
+  .data-table {
+    border-collapse: collapse;
+  }
+  .data-table th,
+  .data-table td {
+    border: 1px solid #e0e0e0;
+  }
+}

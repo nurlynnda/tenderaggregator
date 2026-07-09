@@ -40,7 +40,7 @@ export default function ScrapeBanner() {
       <button
         onClick={() => scrape.mutate()}
         disabled={running || scrape.isPending}
-        className="bg-white text-blue-900 font-semibold rounded-md px-4 py-1.5 disabled:opacity-50"
+        className="bg-white text-blue-900 font-semibold text-sm rounded-md px-4 py-1.5 disabled:opacity-50"
       >
         Rescrape
       </button>
