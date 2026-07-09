@@ -1,4 +1,5 @@
 import { MyProcurementAdapter } from './scrapers/myprocurement/adapter.js';
+import { SpanAdapter } from './scrapers/span/adapter.js';
 import { createPoliteFetcher } from './http/politeFetch.js';
 import { TenderRepository } from './storage/repository.js';
 import { ScrapeManager } from './scrape/manager.js';
@@ -12,7 +13,10 @@ async function main() {
   const repo = new TenderRepository(DATA_DIR);
   await repo.load();
 
-  const adapters = [new MyProcurementAdapter(createPoliteFetcher())];
+  const adapters = [
+    new MyProcurementAdapter(createPoliteFetcher()),
+    new SpanAdapter(createPoliteFetcher({ responseType: 'text' })),
+  ];
   const manager = new ScrapeManager(adapters, repo);
 
   // Startup scrape policy (spec: Startup section):
