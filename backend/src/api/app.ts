@@ -5,6 +5,11 @@ import type { ScrapeManager } from '../scrape/manager.js';
 import type { TenderRepository } from '../storage/repository.js';
 import { buildFacets, queryTenders } from '../query/tenders.js';
 
+const ScrapeRequestSchema = z.object({
+  source: z.string().optional(),
+  scope: z.enum(['open', 'full']).optional(),
+});
+
 const QuerySchema = z.object({
   search: z.string().optional(),
   ministry: z.string().optional(),
@@ -23,8 +28,13 @@ const QuerySchema = z.object({
 
 export function createApp(deps: { repo: TenderRepository; manager: ScrapeManager }) {
   const app = express();
+  app.use(express.json());
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+  app.get('/api/sources', (_req, res) => {
+    res.json(deps.manager.listSources());
+  });
 
   app.get('/api/tenders/facets', (_req, res) => {
     res.json(buildFacets(deps.repo.getAll()));
@@ -43,11 +53,18 @@ export function createApp(deps: { repo: TenderRepository; manager: ScrapeManager
     res.json(queryTenders(deps.repo.getAll(), parsed.data));
   });
 
-  app.post('/api/scrape', (_req, res) => {
-    if (!deps.manager.start('open')) {
-      return res.status(409).json({ error: 'scrape already running' });
-    }
+  app.post('/api/scrape', (req, res) => {
+    const parsed = ScrapeRequestSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+    const scope = parsed.data.scope === 'full' ? 'all' : 'open';
+    const started = deps.manager.start(scope, { sourceName: parsed.data.source });
+    if (!started) return res.status(409).json({ error: 'scrape already running' });
     res.status(202).json({ started: true });
+  });
+
+  app.post('/api/scrape/cancel', (_req, res) => {
+    if (!deps.manager.cancel()) return res.status(409).json({ error: 'nothing running' });
+    res.json({ cancelled: true });
   });
 
   app.get('/api/scrape/status', (_req, res) => {

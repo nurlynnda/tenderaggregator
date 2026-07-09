@@ -23,6 +23,15 @@ function patch(overrides: Partial<TenderPatch> = {}): TenderPatch {
   };
 }
 
+async function waitUntilNotRunning(app: ReturnType<typeof createApp>): Promise<void> {
+  for (let i = 0; i < 50; i += 1) {
+    const res = await request(app).get('/api/scrape/status');
+    if (res.body.state !== 'running') return;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  throw new Error('waitUntilNotRunning: timed out');
+}
+
 describe('API', () => {
   let repo: TenderRepository;
   let manager: ScrapeManager;
@@ -135,5 +144,53 @@ describe('API', () => {
   it('GET /api/scrape/status is idle initially', async () => {
     const res = await request(app).get('/api/scrape/status');
     expect(res.body).toEqual({ state: 'idle' });
+  });
+
+  it('GET /api/sources returns name, lastScrapedAt, lastArchiveBackfillAt, and total per registered adapter', async () => {
+    const fakeAdapter = { name: 'span', scrape: async () => {}, archiveJobNames: () => [] };
+    const mgr = new ScrapeManager([fakeAdapter], repo);
+    const app2 = createApp({ repo, manager: mgr });
+    const res = await request(app2).get('/api/sources');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([{ name: 'span', lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0 }]);
+  });
+
+  it('POST /api/scrape accepts source and scope=full, running only that adapter with the manager\'s "all" scope', async () => {
+    const scrapedBy: string[] = [];
+    let receivedScope: string | undefined;
+    const adapterA = { name: 'a', scrape: async () => { scrapedBy.push('a'); }, archiveJobNames: () => [] };
+    const adapterB = {
+      name: 'b',
+      scrape: async (scope: string) => { scrapedBy.push('b'); receivedScope = scope; },
+      archiveJobNames: () => [],
+    };
+    const mgr = new ScrapeManager([adapterA, adapterB], repo);
+    const app2 = createApp({ repo, manager: mgr });
+    const res = await request(app2).post('/api/scrape').send({ source: 'b', scope: 'full' });
+    expect(res.status).toBe(202);
+    await waitUntilNotRunning(app2);
+    expect(scrapedBy).toEqual(['b']);
+    expect(receivedScope).toBe('all');
+  });
+
+  it('POST /api/scrape rejects an invalid scope value with 400', async () => {
+    const res = await request(app).post('/api/scrape').send({ scope: 'bogus' });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/scrape/cancel cancels a running scrape (200) and 409s when nothing is running', async () => {
+    const idle = await request(app).post('/api/scrape/cancel');
+    expect(idle.status).toBe(409);
+
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const blockingAdapter = { name: 'fake', scrape: async () => { await gate; }, archiveJobNames: () => [] };
+    const blockingManager = new ScrapeManager([blockingAdapter], repo);
+    const app2 = createApp({ repo, manager: blockingManager });
+    await request(app2).post('/api/scrape');
+    const res = await request(app2).post('/api/scrape/cancel');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ cancelled: true });
+    release();
   });
 });
