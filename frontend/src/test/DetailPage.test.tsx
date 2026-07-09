@@ -70,4 +70,13 @@ describe('DetailPage', () => {
     renderDetail('NOPE');
     expect(await screen.findByText(/not found|failed/i)).toBeInTheDocument();
   });
+
+  it('shows "—" for Procurement Type when the source could not classify it', async () => {
+    server.use(http.get('/api/tenders/:refNo', () => HttpResponse.json({
+      tender: makeTender({ procurementType: null }),
+    })));
+    renderDetail('UTHM/54/P/02/023/2026');
+    const label = await screen.findByText('Procurement Type');
+    expect(label.nextElementSibling).toHaveTextContent('—');
+  });
 });

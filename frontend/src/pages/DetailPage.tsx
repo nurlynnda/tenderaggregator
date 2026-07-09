@@ -46,7 +46,10 @@ export default function DetailPage() {
       <div className="border border-[#e0e0e0] rounded-lg p-4">
         <Field label="Reference No" value={t.referenceNo} />
         <Field label="Status" value={<span className="capitalize">{t.status}</span>} />
-        <Field label="Procurement Type" value={<span className="capitalize">{t.procurementType}</span>} />
+        <Field
+          label="Procurement Type"
+          value={t.procurementType ? <span className="capitalize">{t.procurementType}</span> : null}
+        />
         <Field label="Ministry" value={t.ministry} />
         <Field label="Agency" value={t.agency} />
         <Field label="Category" value={t.category} />

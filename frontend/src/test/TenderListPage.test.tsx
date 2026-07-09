@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -169,5 +169,14 @@ describe('TenderListPage', () => {
     renderList(<TenderListPage status="open" />);
     await userEvent.click(await screen.findByText('MENYELENGGARA PERALATAN MAKMAL'));
     expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument();
+  });
+
+  it('renders "—" for a null procurementType', async () => {
+    server.use(http.get('/api/tenders', () => HttpResponse.json({
+      items: [makeTender({ procurementType: null })], total: 1, page: 1, pageSize: 20,
+    })));
+    renderList(<TenderListPage status="open" />);
+    const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
+    expect(within(row).getByText('—')).toBeInTheDocument();
   });
 });

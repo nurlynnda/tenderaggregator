@@ -141,7 +141,7 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
                 <td className="px-3 py-2 font-medium max-w-xl">{t.title}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{t.referenceNo}</td>
                 <td className="px-3 py-2">{t.ministry ?? '—'}</td>
-                <td className="px-3 py-2 capitalize">{t.procurementType}</td>
+                <td className="px-3 py-2 capitalize">{t.procurementType ?? '—'}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{t.closingDate ?? '—'}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   {t.fieldCodes.length === 0
