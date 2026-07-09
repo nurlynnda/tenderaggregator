@@ -22,3 +22,17 @@ export function splitFieldCodes(s: string | null | undefined): string[] {
   if (!s) return [];
   return s.split(',').map((c) => c.trim()).filter((c) => c.length > 0);
 }
+
+export function parseIsoDatePrefix(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const m = s.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const yyyy = Number(m[1]);
+  const mm = Number(m[2]);
+  const dd = Number(m[3]);
+  const date = new Date(Date.UTC(yyyy, mm - 1, dd));
+  if (date.getUTCFullYear() !== yyyy || date.getUTCMonth() !== mm - 1 || date.getUTCDate() !== dd) {
+    return null;
+  }
+  return `${m[1]}-${m[2]}-${m[3]}`;
+}

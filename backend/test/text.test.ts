@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseDdMmYyyy, parseRmPrice, splitFieldCodes } from '../src/parsing/text.js';
+import { parseDdMmYyyy, parseIsoDatePrefix, parseRmPrice, splitFieldCodes } from '../src/parsing/text.js';
 
 describe('parseDdMmYyyy', () => {
   it('parses dd/mm/yyyy into ISO date', () => {
@@ -40,5 +40,22 @@ describe('splitFieldCodes', () => {
     expect(splitFieldCodes('')).toEqual([]);
     expect(splitFieldCodes(null)).toEqual([]);
     expect(splitFieldCodes(undefined)).toEqual([]);
+  });
+});
+
+describe('parseIsoDatePrefix', () => {
+  it('parses a bare ISO date', () => {
+    expect(parseIsoDatePrefix('2026-06-22')).toBe('2026-06-22');
+  });
+  it('parses an ISO date with a trailing time, dropping the time', () => {
+    expect(parseIsoDatePrefix('2026-07-06 12:00PM')).toBe('2026-07-06');
+  });
+  it('returns null for invalid or missing input', () => {
+    expect(parseIsoDatePrefix('2026-13-01')).toBeNull(); // no month 13
+    expect(parseIsoDatePrefix('2026-02-30')).toBeNull(); // no Feb 30
+    expect(parseIsoDatePrefix('22/06/2026')).toBeNull(); // wrong format
+    expect(parseIsoDatePrefix('')).toBeNull();
+    expect(parseIsoDatePrefix(null)).toBeNull();
+    expect(parseIsoDatePrefix(undefined)).toBeNull();
   });
 });
