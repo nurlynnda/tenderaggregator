@@ -93,6 +93,26 @@ export class TenderRepository {
     for (const patch of patches) this.mergeOne(patch);
   }
 
+  reconcileStaleOpen(now: Date = new Date()): number {
+    let count = 0;
+    for (const t of this.merged.values()) {
+      if (t.status !== 'open') continue;
+
+      if (t.closingDate) {
+        if (now >= closingCutoff(t.closingDate)) {
+          t.status = 'closed';
+          count += 1;
+        }
+      } else if (t.advertisedDate) {
+        if (now > addOneMonth(t.advertisedDate)) {
+          t.status = 'closed';
+          count += 1;
+        }
+      }
+    }
+    return count;
+  }
+
   private mergeOne(patch: TenderPatch): void {
     const key = patch.dedupKey;
     const existing = this.merged.get(key);
@@ -187,4 +207,18 @@ async function atomicWrite(path: string, content: string): Promise<void> {
   const tmp = `${path}.tmp`;
   await writeFile(tmp, content, 'utf8');
   await rename(tmp, path);
+}
+
+// 12:01pm Malaysia time (UTC+8, no DST) on the given YYYY-MM-DD closing date — every
+// submission is due before noon that day, so anything at or after this instant is closed.
+function closingCutoff(dateStr: string): Date {
+  return new Date(`${dateStr}T12:01:00+08:00`);
+}
+
+// Same calendar day one month later (e.g. 2026-01-15 -> 2026-02-15, at midnight MYT), used
+// as a fallback deadline for records where a real closing date was never captured.
+function addOneMonth(dateStr: string): Date {
+  const d = new Date(`${dateStr}T00:00:00+08:00`);
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  return d;
 }

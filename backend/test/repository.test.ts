@@ -217,4 +217,102 @@ describe('TenderRepository', () => {
     expect(Date.now() - start).toBeLessThan(5000);
     expect(repo.getAll()).toHaveLength(20000);
   });
+
+  it('flips an open tender to closed once past 12:01pm MYT on its closing date', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([makePatch({ closingDate: '2026-07-10' })]);
+    const count = repo.reconcileStaleOpen(new Date('2026-07-10T04:02:00.000Z')); // 12:02pm MYT
+    expect(count).toBe(1);
+    expect(repo.getAll()[0]!.status).toBe('closed');
+  });
+
+  it('leaves it open before the 12:01pm MYT cutoff on the same day', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([makePatch({ closingDate: '2026-07-10' })]);
+    const count = repo.reconcileStaleOpen(new Date('2026-07-10T03:00:00.000Z')); // 11:00am MYT
+    expect(count).toBe(0);
+    expect(repo.getAll()[0]!.status).toBe('open');
+  });
+
+  it('flips exactly at the 12:01pm MYT cutoff instant', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([makePatch({ closingDate: '2026-07-10' })]);
+    const count = repo.reconcileStaleOpen(new Date('2026-07-10T04:01:00.000Z')); // exactly 12:01pm MYT
+    expect(count).toBe(1);
+    expect(repo.getAll()[0]!.status).toBe('closed');
+  });
+
+  it('leaves an already-closed tender untouched', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([makePatch({ status: 'closed', closingDate: '2020-01-01' })]);
+    const count = repo.reconcileStaleOpen(new Date('2026-07-10T00:00:00.000Z'));
+    expect(count).toBe(0);
+    expect(repo.getAll()[0]!.status).toBe('closed');
+  });
+
+  it('flips a closing-date-less open tender to closed once more than a month past advertisedDate', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([makePatch({ advertisedDate: '2026-01-15' })]);
+    const count = repo.reconcileStaleOpen(new Date('2026-02-16T00:00:00+08:00'));
+    expect(count).toBe(1);
+    expect(repo.getAll()[0]!.status).toBe('closed');
+  });
+
+  it('leaves a closing-date-less open tender open at exactly one month and just under', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([
+      makePatch({ dedupKey: 'A', referenceNo: 'A', advertisedDate: '2026-01-15' }),
+      makePatch({ dedupKey: 'B', referenceNo: 'B', advertisedDate: '2026-01-15' }),
+    ]);
+    const exactlyOneMonth = repo.reconcileStaleOpen(new Date('2026-02-15T00:00:00+08:00'));
+    expect(exactlyOneMonth).toBe(0);
+    const justUnder = repo.reconcileStaleOpen(new Date('2026-02-14T00:00:00+08:00'));
+    expect(justUnder).toBe(0);
+    expect(repo.findByDedupKey('A')!.status).toBe('open');
+    expect(repo.findByDedupKey('B')!.status).toBe('open');
+  });
+
+  it('leaves a tender with neither closingDate nor advertisedDate untouched', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([makePatch()]); // no closingDate, no advertisedDate override -> both null
+    const count = repo.reconcileStaleOpen(new Date('2030-01-01T00:00:00.000Z'));
+    expect(count).toBe(0);
+    expect(repo.getAll()[0]!.status).toBe('open');
+  });
+
+  it('does not update field-provenance.json for status, so a later genuine patch can still overwrite it', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([makePatch({ closingDate: '2026-01-05', scrapedAt: '2026-01-01T00:00:00.000Z' })]);
+    const staleCount = repo.reconcileStaleOpen(new Date('2026-06-01T00:00:00.000Z'));
+    expect(staleCount).toBe(1);
+    expect(repo.getAll()[0]!.status).toBe('closed');
+
+    // A genuine patch dated after the ORIGINAL scrape (but well before reconcile's `now`)
+    // must still be able to overwrite status — proving reconcile never touched provenance.
+    repo.mergeMany([makePatch({ status: 'open', scrapedAt: '2026-02-01T00:00:00.000Z' })]);
+    expect(repo.getAll()[0]!.status).toBe('open');
+  });
+
+  it('returns the count of records changed, ignoring ones that are not eligible', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([
+      makePatch({ dedupKey: 'STALE/1', referenceNo: 'STALE/1', closingDate: '2020-01-01' }),
+      makePatch({ dedupKey: 'STALE/2', referenceNo: 'STALE/2', closingDate: '2021-01-01' }),
+      makePatch({ dedupKey: 'FRESH/1', referenceNo: 'FRESH/1', closingDate: '2030-01-01' }),
+    ]);
+    const count = repo.reconcileStaleOpen(new Date('2026-07-10T00:00:00.000Z'));
+    expect(count).toBe(2);
+    expect(repo.findByDedupKey('STALE/1')!.status).toBe('closed');
+    expect(repo.findByDedupKey('STALE/2')!.status).toBe('closed');
+    expect(repo.findByDedupKey('FRESH/1')!.status).toBe('open');
+  });
 });
