@@ -93,6 +93,9 @@ export class TenderRepository {
     for (const patch of patches) this.mergeOne(patch);
   }
 
+  // Derives status from dates already on the record: flips `open` -> `closed` once the
+  // closing-date cutoff (or, lacking one, the one-month-past-advertised fallback) has
+  // passed. Never touches field-provenance.json — this is a correction, not an observation.
   reconcileStaleOpen(now: Date = new Date()): number {
     let count = 0;
     for (const t of this.merged.values()) {
@@ -216,9 +219,19 @@ function closingCutoff(dateStr: string): Date {
 }
 
 // Same calendar day one month later (e.g. 2026-01-15 -> 2026-02-15, at midnight MYT), used
-// as a fallback deadline for records where a real closing date was never captured.
+// as a fallback deadline for records where a real closing date was never captured. Clamps
+// to the target month's last day when the original day doesn't exist there (e.g.
+// 2026-01-31 -> 2026-02-28, never overflowing into March).
 function addOneMonth(dateStr: string): Date {
-  const d = new Date(`${dateStr}T00:00:00+08:00`);
-  d.setUTCMonth(d.getUTCMonth() + 1);
-  return d;
+  const [year, month, day] = dateStr.split('-').map(Number);
+  let targetYear = year;
+  let targetMonth = month + 1; // 1-12, may be 13
+  if (targetMonth > 12) {
+    targetMonth = 1;
+    targetYear += 1;
+  }
+  const daysInTargetMonth = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
+  const targetDay = Math.min(day, daysInTargetMonth);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return new Date(`${targetYear}-${pad(targetMonth)}-${pad(targetDay)}T00:00:00+08:00`);
 }

@@ -278,6 +278,19 @@ describe('TenderRepository', () => {
     expect(repo.findByDedupKey('B')!.status).toBe('open');
   });
 
+  it('clamps the one-month fallback to the last day of a shorter target month', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([makePatch({ advertisedDate: '2026-01-31' })]);
+    // 2026 is not a leap year, so Feb has 28 days -> cutoff is 2026-02-28T00:00:00+08:00,
+    // not 2026-03-03 (which the old setUTCMonth(+1) overflow used to produce).
+    const stillOpen = repo.reconcileStaleOpen(new Date('2026-02-28T00:00:00+08:00'));
+    expect(stillOpen).toBe(0);
+    const nowClosed = repo.reconcileStaleOpen(new Date('2026-03-01T00:00:00+08:00'));
+    expect(nowClosed).toBe(1);
+    expect(repo.getAll()[0]!.status).toBe('closed');
+  });
+
   it('leaves a tender with neither closingDate nor advertisedDate untouched', async () => {
     const { repo } = freshRepo();
     await repo.load();
