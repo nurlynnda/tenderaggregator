@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom';
+import DashboardPage from './pages/DashboardPage';
 import DetailPage from './pages/DetailPage';
 import SettingsPage from './pages/SettingsPage';
 import TenderListPage from './pages/TenderListPage';
@@ -18,6 +19,7 @@ export default function App() {
           <nav className="w-56 shrink-0 bg-white border-r border-[#e0e0e0] p-4 flex flex-col overflow-y-auto">
             <div className="text-hero font-semibold text-blue-900 mb-4">Malaysia Tender Aggregator</div>
             <div className="space-y-1">
+              <NavLink to="/dashboard" className={navLinkClass}>Dashboard</NavLink>
               <NavLink to="/open" className={navLinkClass}>Open Tenders</NavLink>
               <NavLink to="/closed" className={navLinkClass}>Closed Tenders</NavLink>
               <NavLink to="/awarded" className={navLinkClass}>Awarded Tenders</NavLink>
@@ -30,6 +32,7 @@ export default function App() {
             <header className="bg-blue-900 text-white px-6 py-4 flex items-center justify-end shrink-0" />
             <main className="p-6">
               <Routes>
+                <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/" element={<Navigate to="/open" replace />} />
                 <Route path="/open" element={<TenderListPage status="open" />} />
                 <Route path="/closed" element={<TenderListPage status="closed" />} />

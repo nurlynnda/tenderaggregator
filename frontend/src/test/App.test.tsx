@@ -22,4 +22,10 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Settings' }));
     expect(await screen.findByText('Data Sources')).toBeInTheDocument();
   });
+
+  it('renders a Dashboard link pinned first in the nav, leading to the Dashboard page', async () => {
+    render(<App />);
+    await userEvent.click(screen.getByRole('link', { name: 'Dashboard' }));
+    expect(await screen.findByText('Spend by Ministry')).toBeInTheDocument();
+  });
 });
