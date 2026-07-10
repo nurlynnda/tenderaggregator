@@ -1,5 +1,6 @@
 import { MyProcurementAdapter } from './scrapers/myprocurement/adapter.js';
 import { SpanAdapter } from './scrapers/span/adapter.js';
+import { createSpanFetchImpl } from './scrapers/span/spanFetchImpl.js';
 import { createPoliteFetcher } from './http/politeFetch.js';
 import { TenderRepository } from './storage/repository.js';
 import { ScrapeManager } from './scrape/manager.js';
@@ -15,7 +16,7 @@ async function main() {
 
   const adapters = [
     new MyProcurementAdapter(createPoliteFetcher()),
-    new SpanAdapter(createPoliteFetcher({ responseType: 'text' })),
+    new SpanAdapter(createPoliteFetcher({ responseType: 'text', fetchImpl: createSpanFetchImpl() })),
   ];
   const manager = new ScrapeManager(adapters, repo);
 
