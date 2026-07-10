@@ -7,9 +7,10 @@ import { TenderRepository } from './storage/repository.js';
 import { ScrapeManager } from './scrape/manager.js';
 import { createApp } from './api/app.js';
 import { decideStartupPolicy } from './startupPolicy.js';
+import { resolveDataDir } from './resolveDataDir.js';
 
 const PORT = Number(process.env.PORT) || 3001;
-const DATA_DIR = process.env.DATA_DIR || new URL('../data', import.meta.url).pathname;
+const DATA_DIR = resolveDataDir(import.meta.url, process.env.DATA_DIR);
 
 async function main() {
   const repo = new TenderRepository(DATA_DIR);
