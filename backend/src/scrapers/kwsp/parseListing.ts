@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import type { AnyNode, Cheerio } from 'cheerio';
 import { TenderPatchSchema, computeDedupKey, type TenderPatch } from '@tms/shared';
-import { parseDottedDate, parseMonthYearToFirstOfMonth } from '../../parsing/text.js';
+import { parseDottedDate } from '../../parsing/text.js';
 
 export interface KwspParseContext {
   now?: () => string;
@@ -109,9 +109,8 @@ export function parseResults(html: string, ctx: KwspParseContext = {}): TenderPa
 
   $('.accordion-card .accordion-item').each((_, item) => {
     const monthLabel = clean($(item).find('h3').first().text());
-    const closingDate = parseMonthYearToFirstOfMonth(monthLabel);
     $(item).find('.accordion-content > p').each((_, p) => {
-      const candidate = parseResultEntry($, $(p), monthLabel, closingDate, scrapedAt);
+      const candidate = parseResultEntry($, $(p), monthLabel, scrapedAt);
       if (!candidate) return;
       const result = TenderPatchSchema.safeParse(candidate);
       if (!result.success) {
@@ -129,7 +128,6 @@ function parseResultEntry(
   $: cheerio.CheerioAPI,
   p: Cheerio<AnyNode>,
   monthLabel: string,
-  closingDate: string | null,
   scrapedAt: string,
 ): Record<string, unknown> | null {
   const title = clean(p.contents().first().text());
@@ -156,7 +154,6 @@ function parseResultEntry(
     scrapedAt,
     source: { source: SOURCE, sourceId: referenceNo, sourceUrl: PAGE_URL },
     agency: AGENCY,
-    closingDate,
     raw,
   };
   if (winnerNames.length > 0) {

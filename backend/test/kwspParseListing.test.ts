@@ -140,13 +140,13 @@ describe('parseResults — embedded entries, exact values', () => {
     expect(t!.procurementType).toBe('tender');
     expect(t!.agency).toBe('Kumpulan Wang Simpanan Pekerja (KWSP)');
     expect(t!.dedupKey).toBe('DOC5446704109');
-    expect(t!.closingDate).toBe('2026-03-01');
     expect(t!.winners).toEqual([{ name: 'MEDIINA WAWASAN RESOURCES', price: null }]);
     expect(t!.source).toEqual({
       source: 'kwsp', sourceId: 'Doc5446704109',
       sourceUrl: 'https://www.kwsp.gov.my/en/corporate/procurement/tenders',
     });
     expect(t).not.toHaveProperty('advertisedDate');
+    expect(t).not.toHaveProperty('closingDate');
     expect(() => TenderPatchSchema.parse(t)).not.toThrow();
   });
 
@@ -157,7 +157,7 @@ describe('parseResults — embedded entries, exact values', () => {
       { name: 'Maxis Broadband Sdn Bhd', price: null },
       { name: 'Celcom Berhad', price: null },
     ]);
-    expect(t!.closingDate).toBe('2025-11-01');
+    expect(t).not.toHaveProperty('closingDate');
   });
 
   it('omits winners entirely (not []) when the reference block has no winner name', () => {
