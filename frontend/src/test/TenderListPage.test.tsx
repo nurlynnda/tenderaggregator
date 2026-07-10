@@ -22,15 +22,31 @@ function renderList(ui: React.ReactElement, { route = '/' } = {}) {
 }
 
 describe('TenderListPage', () => {
-  it('renders tender rows without Source/Price/Status columns, with a Field Code column', async () => {
+  it('renders tender rows without Price/Status columns, with Field Code and Source columns', async () => {
     renderList(<TenderListPage status="open" />);
     expect(await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).toBeInTheDocument();
     expect(screen.getByText('UTHM/54/P/02/023/2026')).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: /source/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: /^price/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: /^status/i })).not.toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: /field code/i })).toBeInTheDocument();
     expect(screen.getByText('060501')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /^source/i })).toBeInTheDocument();
+    const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
+    expect(within(row).getByText('myprocurement')).toBeInTheDocument();
+  });
+
+  it('joins multiple sources with a comma in the Source column', async () => {
+    server.use(http.get('/api/tenders', () => HttpResponse.json({
+      items: [makeTender({
+        sources: [
+          { source: 'myprocurement', sourceId: '1', sourceUrl: 'https://example.com/1' },
+          { source: 'span', sourceId: '9', sourceUrl: 'https://example.com/9' },
+        ],
+      })],
+      total: 1, page: 1, pageSize: 20,
+    })));
+    renderList(<TenderListPage status="open" />);
+    expect(await screen.findByText('myprocurement, span')).toBeInTheDocument();
   });
 
   it('sends status as a fixed param, not a user-facing filter', async () => {
@@ -101,6 +117,18 @@ describe('TenderListPage', () => {
     );
     await waitFor(() =>
       expect(requests.some((u) => u.includes('ministry=KEMENTERIAN'))).toBe(true));
+  });
+
+  it('populates the Source filter from facets and sends source as a query param on change', async () => {
+    const requests: string[] = [];
+    server.use(http.get('/api/tenders', ({ request }) => {
+      requests.push(request.url);
+      return HttpResponse.json(defaultPage);
+    }));
+    renderList(<TenderListPage status="open" />);
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+    await userEvent.selectOptions(await screen.findByLabelText(/^source/i), 'span');
+    await waitFor(() => expect(requests.some((u) => u.includes('source=span'))).toBe(true));
   });
 
   it('sends search text as a query param (debounced)', async () => {

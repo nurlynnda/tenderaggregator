@@ -23,7 +23,8 @@ export function makeTender(overrides: Partial<Tender> = {}): Tender {
 export const defaultPage: TenderPage = { items: [makeTender()], total: 1, page: 1, pageSize: 20 };
 export const defaultFacets: Facets = {
   ministries: ['KEMENTERIAN PENDIDIKAN TINGGI'], agencies: ['UTHM'],
-  categories: ['Perkhidmatan Bukan Perunding'], procurementTypes: ['quotation'],
+  categories: ['Perkhidmatan Bukan Perunding'], sources: ['myprocurement', 'span'],
+  procurementTypes: ['quotation'],
   fieldCodes: ['060501'],
 };
 export const idleStatus: ScrapeStatus = { state: 'idle' };

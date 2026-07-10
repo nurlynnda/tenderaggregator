@@ -3,7 +3,7 @@ export type { Tender };
 
 export interface TenderPage { items: Tender[]; total: number; page: number; pageSize: number }
 export interface Facets {
-  ministries: string[]; agencies: string[]; categories: string[];
+  ministries: string[]; agencies: string[]; categories: string[]; sources: string[];
   procurementTypes: string[]; fieldCodes: string[];
 }
 export interface ScrapeStatus {

@@ -11,6 +11,7 @@ const FILTERS = [
   { key: 'ministry', label: 'Ministry', facet: 'ministries' },
   { key: 'agency', label: 'Agency', facet: 'agencies' },
   { key: 'category', label: 'Category', facet: 'categories' },
+  { key: 'source', label: 'Source', facet: 'sources' },
   { key: 'procurementType', label: 'Type', facet: 'procurementTypes' },
 ] as const;
 
@@ -127,6 +128,7 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
                 <button onClick={() => toggleSort('closingDate')}>Closing Date{sortIndicator('closingDate')}</button>
               </th>
               <th className="px-3 py-2 uppercase tracking-wide">Field Code</th>
+              <th className="px-3 py-2 uppercase tracking-wide">Source</th>
               {hasWinners && <th className="px-3 py-2 uppercase tracking-wide">Contractor</th>}
               {hasWinners && <th className="px-3 py-2 uppercase tracking-wide">Price Won</th>}
             </tr>
@@ -150,6 +152,7 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
                       ? t.fieldCodes[0]
                       : `${t.fieldCodes[0]} +${t.fieldCodes.length - 1}`}
                 </td>
+                <td className="px-3 py-2 whitespace-nowrap">{t.sources.map((s) => s.source).join(', ')}</td>
                 {hasWinners && <td className="px-3 py-2">{formatContractors(t.winners)}</td>}
                 {hasWinners && <td className="px-3 py-2 whitespace-nowrap">{formatPricesWon(t.winners)}</td>}
               </tr>
