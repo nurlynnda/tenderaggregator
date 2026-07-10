@@ -216,4 +216,42 @@ describe('ScrapeManager', () => {
     const mgr = new ScrapeManager([], repo, { now: NOW });
     expect(mgr.cancel()).toBe(false);
   });
+
+  it('reconciles stale open tenders after the run completes, flushing an extra time only when something changed', async () => {
+    const repo = await freshRepo();
+    const originalFlush = repo.flush.bind(repo);
+    let flushCount = 0;
+    repo.flush = async () => { flushCount += 1; return originalFlush(); };
+    const stalePatch: TenderPatch = {
+      dedupKey: 'STALE/1', referenceNo: 'STALE/1', title: 'Stale Tender',
+      status: 'open', procurementType: 'quotation',
+      scrapedAt: NOW(),
+      closingDate: '2026-01-01',
+      source: { source: 'fake', sourceId: '1', sourceUrl: 'https://example.com/1' },
+    };
+    const adapter = fakeAdapter(async (_s, hooks) => { await hooks.onBatch([stalePatch]); });
+    const mgr = new ScrapeManager([adapter], repo, { now: NOW });
+    await mgr.runToCompletion('open');
+    expect(repo.getAll()[0]!.status).toBe('closed');
+    expect(flushCount).toBe(2); // one per-adapter flush + one extra from reconciliation finding a change
+  });
+
+  it('does not perform an extra flush when reconciliation finds nothing stale', async () => {
+    const repo = await freshRepo();
+    const originalFlush = repo.flush.bind(repo);
+    let flushCount = 0;
+    repo.flush = async () => { flushCount += 1; return originalFlush(); };
+    const freshPatch: TenderPatch = {
+      dedupKey: 'FRESH/1', referenceNo: 'FRESH/1', title: 'Fresh Tender',
+      status: 'open', procurementType: 'quotation',
+      scrapedAt: NOW(),
+      closingDate: '2026-12-31',
+      source: { source: 'fake', sourceId: '1', sourceUrl: 'https://example.com/1' },
+    };
+    const adapter = fakeAdapter(async (_s, hooks) => { await hooks.onBatch([freshPatch]); });
+    const mgr = new ScrapeManager([adapter], repo, { now: NOW });
+    await mgr.runToCompletion('open');
+    expect(repo.getAll()[0]!.status).toBe('open');
+    expect(flushCount).toBe(1); // just the one per-adapter flush; reconciliation found nothing to change
+  });
 });

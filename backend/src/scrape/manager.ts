@@ -107,6 +107,10 @@ export class ScrapeManager {
         if (scope === 'all' || scope === 'archive') stamp.lastArchiveBackfillAt = now();
         await this.repo.setMeta(adapter.name, stamp);
       }
+      if (!this.cancelRequested) {
+        const staleCount = this.repo.reconcileStaleOpen(new Date(now()));
+        if (staleCount > 0) await this.repo.flush();
+      }
       this.current = this.cancelRequested ? { state: 'cancelled', source: activeSource } : { state: 'done' };
     } catch (err) {
       this.current = { state: 'failed', source: activeSource, error: err instanceof Error ? err.message : String(err) };
