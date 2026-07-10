@@ -61,6 +61,11 @@ async function main() {
 
   const rawSweepIntervalHours = Number(process.env.STALE_SWEEP_INTERVAL_HOURS);
   const sweepIntervalHours = rawSweepIntervalHours > 0 ? rawSweepIntervalHours : 6;
+  // Node's setInterval uses a 32-bit signed int for the delay; anything larger fires almost
+  // immediately instead of "far in the future" — clamp so a misconfigured (or Infinity) env
+  // var can't turn this into a tight loop.
+  const MAX_SETINTERVAL_DELAY_MS = 2 ** 31 - 1;
+  const sweepDelayMs = Math.min(sweepIntervalHours * 60 * 60 * 1000, MAX_SETINTERVAL_DELAY_MS);
   setInterval(() => {
     void (async () => {
       try {
@@ -73,7 +78,7 @@ async function main() {
         console.error('[sweep] reconciliation failed:', err);
       }
     })();
-  }, sweepIntervalHours * 60 * 60 * 1000).unref();
+  }, sweepDelayMs).unref();
 
   createApp({ repo, manager }).listen(PORT, () => {
     console.log(`backend listening on :${PORT}`);

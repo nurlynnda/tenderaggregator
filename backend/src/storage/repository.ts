@@ -175,7 +175,22 @@ export class TenderRepository {
     else existing.sources[srcIdx] = patch.source;
   }
 
-  async flush(): Promise<void> {
+  private flushChain: Promise<void> = Promise.resolve();
+
+  // Serializes every flush behind a promise chain: multiple independent callers (the
+  // scrape manager and the recurring stale-status sweep both call this) must never have
+  // their writes to tenders.json.tmp interleave. Each caller still gets a promise tied to
+  // its own flush's outcome — a failed flush doesn't wedge the chain for later callers.
+  flush(): Promise<void> {
+    const next = this.flushChain.then(
+      () => this.doFlush(),
+      () => this.doFlush(),
+    );
+    this.flushChain = next.catch(() => {});
+    return next;
+  }
+
+  private async doFlush(): Promise<void> {
     await mkdir(this.dataDir, { recursive: true });
     // Each write below is individually atomic (temp file + rename), but the pair is not
     // atomic together: a crash between them can leave field-provenance.json out of sync

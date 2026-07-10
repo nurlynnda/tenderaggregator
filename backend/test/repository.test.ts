@@ -158,6 +158,18 @@ describe('TenderRepository', () => {
     expect(repo2.getAll()[0]!.title).toBe('T1');
   });
 
+  it('serializes concurrent flush() calls so their writes never interleave', async () => {
+    const { dir, repo } = freshRepo();
+    await repo.load();
+    repo.mergeMany([makePatch()]);
+    // Fire many overlapping flushes concurrently — before the fix, interleaved
+    // temp-file writes/renames could throw or leave tenders.json corrupted.
+    await Promise.all([repo.flush(), repo.flush(), repo.flush(), repo.flush(), repo.flush()]);
+    const onDisk = JSON.parse(readFileSync(join(dir, 'tenders.json'), 'utf8'));
+    expect(onDisk).toHaveLength(1);
+    expect(onDisk[0].dedupKey).toBe('REF/1');
+  });
+
   it('meta defaults, patches, and persists per source; hasSource reflects a completed scrape', async () => {
     const { dir, repo } = freshRepo();
     await repo.load();
