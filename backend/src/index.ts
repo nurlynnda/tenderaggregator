@@ -59,17 +59,21 @@ async function main() {
     })();
   }
 
-  const sweepIntervalHours = Number(process.env.STALE_SWEEP_INTERVAL_HOURS) || 6;
-  setInterval(
-    async () => {
-      const count = repo.reconcileStaleOpen();
-      if (count > 0) {
-        console.log(`[sweep] reconciled ${count} stale open tender(s)`);
-        await repo.flush();
+  const rawSweepIntervalHours = Number(process.env.STALE_SWEEP_INTERVAL_HOURS);
+  const sweepIntervalHours = rawSweepIntervalHours > 0 ? rawSweepIntervalHours : 6;
+  setInterval(() => {
+    void (async () => {
+      try {
+        const count = repo.reconcileStaleOpen();
+        if (count > 0) {
+          console.log(`[sweep] reconciled ${count} stale open tender(s)`);
+          await repo.flush();
+        }
+      } catch (err) {
+        console.error('[sweep] reconciliation failed:', err);
       }
-    },
-    sweepIntervalHours * 60 * 60 * 1000,
-  ).unref();
+    })();
+  }, sweepIntervalHours * 60 * 60 * 1000).unref();
 
   createApp({ repo, manager }).listen(PORT, () => {
     console.log(`backend listening on :${PORT}`);
