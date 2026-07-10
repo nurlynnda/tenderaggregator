@@ -83,6 +83,17 @@ describe('ScrapeManager', () => {
     });
   });
 
+  it("sets source on the running status as soon as an adapter starts, before its first progress tick", async () => {
+    const repo = await freshRepo();
+    let capturedBeforeProgress: unknown;
+    const adapter = fakeAdapter(async () => {
+      capturedBeforeProgress = mgr.status();
+    });
+    const mgr = new ScrapeManager([adapter], repo, { now: NOW });
+    await mgr.runToCompletion('open');
+    expect(capturedBeforeProgress).toEqual({ state: 'running', source: 'fake' });
+  });
+
   it('rejects concurrent starts', async () => {
     const repo = await freshRepo();
     let release!: () => void;
@@ -147,6 +158,7 @@ describe('ScrapeManager', () => {
     const mgr = new ScrapeManager([adapter], repo, { now: NOW, flushEveryPages: 1 });
     await mgr.runToCompletion('open');
     expect(mgr.status().state).toBe('failed');
+    expect(mgr.status().source).toBe('fake'); // row-level attribution, so the UI can show the error on the right source
     expect(mgr.status().error).toContain('fetch failed');
     expect(repo.getAll()).toHaveLength(1); // flushed page survived
     expect(repo.getMeta('fake').lastScrapedAt).toBeNull(); // not stamped on failure
@@ -193,6 +205,7 @@ describe('ScrapeManager', () => {
     release();
     await waitUntil(() => mgr.status().state !== 'running');
     expect(mgr.status().state).toBe('cancelled');
+    expect(mgr.status().source).toBe('a'); // row-level attribution, so the UI can tell which row was cancelled
     expect(sawCancelled).toBe(true);
     expect(repo.getAll()).toHaveLength(1); // flushed batch survived
     expect(repo.getMeta('a').lastScrapedAt).toBeNull(); // not stamped, run didn't finish

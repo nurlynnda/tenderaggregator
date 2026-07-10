@@ -63,10 +63,15 @@ export class ScrapeManager {
       this.opts.flushEveryPages ??
       (scope === 'open' ? (this.opts.flushEveryPagesOpen ?? 10) : (this.opts.flushEveryPagesArchive ?? 50));
     const adapters = opts.sourceName ? this.adapters.filter((a) => a.name === opts.sourceName) : this.adapters;
+    let activeSource: string | undefined;
 
     try {
       for (const adapter of adapters) {
         if (this.cancelRequested) break;
+        activeSource = adapter.name;
+        // Attributed immediately (not just once the adapter's first onProgress call lands), so the
+        // UI can identify the running row — and show a Cancel button — from the very first tick.
+        this.current = { state: 'running', source: activeSource };
         let pagesSinceFlush = 0;
         const completedArchiveJobs = new Set(this.repo.getMeta(adapter.name).completedArchiveJobs);
         await adapter.scrape(
@@ -102,9 +107,9 @@ export class ScrapeManager {
         if (scope === 'all' || scope === 'archive') stamp.lastArchiveBackfillAt = now();
         await this.repo.setMeta(adapter.name, stamp);
       }
-      this.current = this.cancelRequested ? { state: 'cancelled' } : { state: 'done' };
+      this.current = this.cancelRequested ? { state: 'cancelled', source: activeSource } : { state: 'done' };
     } catch (err) {
-      this.current = { state: 'failed', error: err instanceof Error ? err.message : String(err) };
+      this.current = { state: 'failed', source: activeSource, error: err instanceof Error ? err.message : String(err) };
     } finally {
       this.running = false;
     }
