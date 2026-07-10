@@ -45,6 +45,9 @@ export default function SettingsPage() {
                   {status?.state === 'failed' && status?.source === s.name && (
                     <div className="text-xs text-red-700 mt-1">Scrape failed: {status.error}</div>
                   )}
+                  {status?.state === 'cancelled' && status?.source === s.name && (
+                    <div className="text-xs text-gray-500 mt-1">Cancelled</div>
+                  )}
                 </div>
                 {isRunningThis ? (
                   <button

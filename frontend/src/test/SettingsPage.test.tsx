@@ -85,4 +85,11 @@ describe('SettingsPage', () => {
     const spanRow = await screen.findByRole('group', { name: 'span' });
     expect(within(spanRow).getByText(/fetch failed after 3 attempts/)).toBeInTheDocument();
   });
+
+  it("shows a cancelled message on the affected source's row", async () => {
+    server.use(http.get('/api/scrape/status', () => HttpResponse.json({ state: 'cancelled', source: 'span' })));
+    renderSettings();
+    const spanRow = await screen.findByRole('group', { name: 'span' });
+    expect(within(spanRow).getByText(/cancelled/i)).toBeInTheDocument();
+  });
 });
