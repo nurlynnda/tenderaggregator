@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { TenderPatchSchema } from '@tms/shared';
-import { parseOpenTenders, parseResults } from '../src/scrapers/kwsp/parseListing.js';
+import { parseOpenTenders, parseResults, parseKwspListingHtml } from '../src/scrapers/kwsp/parseListing.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const NOW = () => '2026-07-11T12:00:00.000Z';
 
@@ -182,5 +187,24 @@ describe('parseOpenTenders / parseResults — kept separate in the same document
     const combined = OPEN_CARD_HTML + RESULTS_HTML;
     expect(parseOpenTenders(combined, { now: NOW })).toHaveLength(1);
     expect(parseResults(combined, { now: NOW })).toHaveLength(2);
+  });
+});
+
+describe('parseKwspListingHtml — live fixture, structural invariants', () => {
+  it('parses every open card and result entry in the fixture into schema-valid patches', () => {
+    const html = readFileSync(join(__dirname, 'fixtures', 'kwsp-tenders.html'), 'utf8');
+    const { open, results } = parseKwspListingHtml(html, { now: NOW });
+    expect(open).toHaveLength(2); // third card is missing "Tender No." and is skipped
+    expect(results).toHaveLength(2); // the malformed entry with no <em> block is skipped
+
+    for (const t of [...open, ...results]) {
+      expect(() => TenderPatchSchema.parse(t)).not.toThrow();
+      expect(t.source.source).toBe('kwsp');
+      if (t.advertisedDate) expect(t.advertisedDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      if (t.closingDate) expect(t.closingDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+    expect(open.every((t) => t.status === 'open')).toBe(true);
+    expect(results.every((t) => t.status === 'closed')).toBe(true);
+    expect(new Set([...open, ...results].map((t) => t.dedupKey)).size).toBe(4);
   });
 });
