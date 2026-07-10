@@ -3,6 +3,12 @@
 Consolidates publicly available Malaysian government tenders from multiple sources
 (currently MyProcurement) into one searchable web app.
 
+## Communication style
+Always explain things in plain, layman's terms — no unexplained jargon, acronyms, or
+technical shorthand. This applies everywhere: brainstorming/design discussions, plan
+summaries, code walkthroughs, error explanations, everything. If a technical term is
+unavoidable, briefly say what it means in the same breath.
+
 ## Stack
 - npm workspaces monorepo: `shared/` (Zod tender schema), `backend/` (Express + scrapers,
   JSON-file storage in `backend/data/`), `frontend/` (React + Vite + Tailwind).
