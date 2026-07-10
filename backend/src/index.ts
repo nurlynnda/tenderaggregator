@@ -14,6 +14,16 @@ async function main() {
   const repo = new TenderRepository(DATA_DIR);
   await repo.load();
 
+  // Self-heals tenders left stuck as "open" past their deadline (see
+  // docs/superpowers/specs/2026-07-10-stale-open-status-reconciliation-design.md) — fixes
+  // whatever accumulated since this last ran; the recurring sweep below (see end of main())
+  // keeps catching up even if nobody restarts the server or triggers a rescrape.
+  const startupStaleCount = repo.reconcileStaleOpen();
+  if (startupStaleCount > 0) {
+    console.log(`[startup] reconciled ${startupStaleCount} stale open tender(s)`);
+    await repo.flush();
+  }
+
   const adapters = [
     new MyProcurementAdapter(createPoliteFetcher()),
     new SpanAdapter(createPoliteFetcher({ responseType: 'text', fetchImpl: createSpanFetchImpl() })),
@@ -48,6 +58,18 @@ async function main() {
       }
     })();
   }
+
+  const sweepIntervalHours = Number(process.env.STALE_SWEEP_INTERVAL_HOURS) || 6;
+  setInterval(
+    async () => {
+      const count = repo.reconcileStaleOpen();
+      if (count > 0) {
+        console.log(`[sweep] reconciled ${count} stale open tender(s)`);
+        await repo.flush();
+      }
+    },
+    sweepIntervalHours * 60 * 60 * 1000,
+  ).unref();
 
   createApp({ repo, manager }).listen(PORT, () => {
     console.log(`backend listening on :${PORT}`);
