@@ -71,6 +71,21 @@ describe('queryTenders', () => {
     expect(queryTenders(data, { contractor: 'NOBODY' }).total).toBe(0);
   });
 
+  it('filters by source, matching a tender that has the source among possibly several', () => {
+    const data = [
+      t({ sources: [{ source: 'myprocurement', sourceId: '1', sourceUrl: 'https://example.com/1' }] }),
+      t({ sources: [
+        { source: 'myprocurement', sourceId: '2', sourceUrl: 'https://example.com/2' },
+        { source: 'span', sourceId: '9', sourceUrl: 'https://example.com/9' },
+      ] }),
+      t({ sources: [{ source: 'kwsp', sourceId: 'Doc1', sourceUrl: 'https://example.com/kwsp/1' }] }),
+    ];
+    expect(queryTenders(data, { source: 'span' }).total).toBe(1);
+    expect(queryTenders(data, { source: 'myprocurement' }).total).toBe(2);
+    expect(queryTenders(data, { source: 'kwsp' }).total).toBe(1);
+    expect(queryTenders(data, { source: 'nonexistent' }).total).toBe(0);
+  });
+
   it('sorts by price desc with nulls last, paginates with total', () => {
     const data = [t({ indicativePrice: 5 }), t({ indicativePrice: null }), t({ indicativePrice: 99 })];
     const page = queryTenders(data, { sortBy: 'indicativePrice', sortOrder: 'desc', page: 1, pageSize: 2 });
@@ -97,9 +112,12 @@ describe('queryTenders', () => {
 });
 
 describe('buildFacets', () => {
-  it('returns sorted distinct values, omitting nulls, including fieldCodes', () => {
+  it('returns sorted distinct values, omitting nulls, including fieldCodes and sources', () => {
     const data = [
-      t({ ministry: 'Z', agency: null, category: 'Kerja', procurementType: 'tender', fieldCodes: ['220801', '010101'] }),
+      t({
+        ministry: 'Z', agency: null, category: 'Kerja', procurementType: 'tender', fieldCodes: ['220801', '010101'],
+        sources: [{ source: 'span', sourceId: '1', sourceUrl: 'https://example.com/1' }],
+      }),
       t({ ministry: 'A', fieldCodes: ['010101'] }),
       t({ ministry: 'A' }),
     ];
@@ -108,5 +126,6 @@ describe('buildFacets', () => {
     expect(f.agencies).toEqual(['AGENSI A']);
     expect(f.procurementTypes).toEqual(['quotation', 'tender']);
     expect(f.fieldCodes).toEqual(['010101', '220801']);
+    expect(f.sources).toEqual(['myprocurement', 'span']);
   });
 });

@@ -5,6 +5,7 @@ export interface TenderQuery {
   ministry?: string;
   agency?: string;
   category?: string;
+  source?: string;
   status?: 'open' | 'closed';
   procurementType?: 'quotation' | 'tender' | 'requisition';
   fieldCode?: string;
@@ -27,6 +28,7 @@ export interface Facets {
   ministries: string[];
   agencies: string[];
   categories: string[];
+  sources: string[];
   procurementTypes: string[];
   fieldCodes: string[];
 }
@@ -45,6 +47,7 @@ export function queryTenders(tenders: Tender[], q: TenderQuery): TenderPage {
   if (q.ministry) items = items.filter((t) => t.ministry === q.ministry);
   if (q.agency) items = items.filter((t) => t.agency === q.agency);
   if (q.category) items = items.filter((t) => t.category === q.category);
+  if (q.source) items = items.filter((t) => t.sources.some((s) => s.source === q.source));
   if (q.status) items = items.filter((t) => t.status === q.status);
   if (q.procurementType) items = items.filter((t) => t.procurementType === q.procurementType);
   if (q.fieldCode) items = items.filter((t) => t.fieldCodes.some((c) => c.startsWith(q.fieldCode!)));
@@ -82,6 +85,7 @@ export function buildFacets(tenders: Tender[]): Facets {
     ministries: distinct(tenders.map((t) => t.ministry)),
     agencies: distinct(tenders.map((t) => t.agency)),
     categories: distinct(tenders.map((t) => t.category)),
+    sources: distinct(tenders.flatMap((t) => t.sources.map((s) => s.source))),
     procurementTypes: distinct(tenders.map((t) => t.procurementType)),
     fieldCodes: [...new Set(tenders.flatMap((t) => t.fieldCodes))].sort(),
   };
