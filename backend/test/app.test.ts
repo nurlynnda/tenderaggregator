@@ -107,6 +107,21 @@ describe('API', () => {
     expect(res.body.fieldCodes).toEqual(['010101']);
   });
 
+  it('GET /api/dashboard returns awarded-tender aggregate stats', async () => {
+    repo.mergeMany([
+      patch({
+        status: 'closed', ministry: 'KEMENTERIAN A', closingDate: '2025-01-10',
+        winners: [{ name: 'ACME SDN BHD', price: 500 }],
+      }),
+      patch({ status: 'open' }), // not awarded — must not affect the stats
+    ]);
+    const res = await request(app).get('/api/dashboard');
+    expect(res.status).toBe(200);
+    expect(res.body.totalAwardedCount).toBe(1);
+    expect(res.body.totalAwardedValue).toBe(500);
+    expect(res.body.byMinistry).toEqual([{ ministry: 'KEMENTERIAN A', totalValue: 500, count: 1 }]);
+  });
+
   it('GET /api/tenders/:refNo returns { tender } by reference number; 404 when missing', async () => {
     repo.mergeMany([patch({ dedupKey: 'UTHM/54/P/02', referenceNo: 'UTHM/54/P/02' })]);
     const res = await request(app).get(`/api/tenders/${encodeURIComponent('UTHM/54/P/02')}`);

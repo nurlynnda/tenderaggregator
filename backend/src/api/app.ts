@@ -4,6 +4,7 @@ import { computeDedupKey } from '@tms/shared';
 import type { ScrapeManager } from '../scrape/manager.js';
 import type { TenderRepository } from '../storage/repository.js';
 import { buildFacets, queryTenders } from '../query/tenders.js';
+import { buildDashboardStats } from '../query/dashboard.js';
 
 const ScrapeRequestSchema = z.object({
   source: z.string().optional(),
@@ -38,6 +39,10 @@ export function createApp(deps: { repo: TenderRepository; manager: ScrapeManager
 
   app.get('/api/tenders/facets', (_req, res) => {
     res.json(buildFacets(deps.repo.getAll()));
+  });
+
+  app.get('/api/dashboard', (_req, res) => {
+    res.json(buildDashboardStats(deps.repo.getAll()));
   });
 
   app.get('/api/tenders/:refNo', (req, res) => {
