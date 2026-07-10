@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import type { AnyNode, Cheerio } from 'cheerio';
 import { TenderPatchSchema, computeDedupKey, type TenderPatch } from '@tms/shared';
-import { parseDottedDate } from '../../parsing/text.js';
+import { parseDottedDate, parseMonthYearToFirstOfMonth } from '../../parsing/text.js';
 
 export interface KwspParseContext {
   now?: () => string;
@@ -90,4 +90,92 @@ function fieldValue($: cheerio.CheerioAPI, card: Cheerio<AnyNode>, label: string
 
 function clean(s: string): string {
   return s.replace(/\s+/g, ' ').trim();
+}
+
+export interface KwspParsedListing {
+  open: TenderPatch[];
+  results: TenderPatch[];
+}
+
+export function parseKwspListingHtml(html: string, ctx: KwspParseContext = {}): KwspParsedListing {
+  return { open: parseOpenTenders(html, ctx), results: parseResults(html, ctx) };
+}
+
+export function parseResults(html: string, ctx: KwspParseContext = {}): TenderPatch[] {
+  const $ = cheerio.load(html);
+  const now = ctx.now ?? (() => new Date().toISOString());
+  const scrapedAt = now();
+  const patches: TenderPatch[] = [];
+
+  $('.accordion-card .accordion-item').each((_, item) => {
+    const monthLabel = clean($(item).find('h3').first().text());
+    const closingDate = parseMonthYearToFirstOfMonth(monthLabel);
+    $(item).find('.accordion-content > p').each((_, p) => {
+      const candidate = parseResultEntry($, $(p), monthLabel, closingDate, scrapedAt);
+      if (!candidate) return;
+      const result = TenderPatchSchema.safeParse(candidate);
+      if (!result.success) {
+        console.warn(`[kwsp] skipping invalid tender result: ${result.error.message}`);
+        return;
+      }
+      patches.push(result.data);
+    });
+  });
+
+  return patches;
+}
+
+function parseResultEntry(
+  $: cheerio.CheerioAPI,
+  p: Cheerio<AnyNode>,
+  monthLabel: string,
+  closingDate: string | null,
+  scrapedAt: string,
+): Record<string, unknown> | null {
+  const title = clean(p.contents().first().text());
+  if (!title) return null;
+
+  const emEl = p.find('em').first();
+  if (emEl.length === 0) return null;
+  const emParts = splitByBr($, emEl);
+  const referenceNo = emParts[0] ?? '';
+  if (!referenceNo) return null;
+  const winnerNames = emParts.slice(1);
+
+  const raw: Record<string, string> = { Title: title, 'Tender No.': referenceNo };
+  if (monthLabel) raw['Result Month'] = monthLabel;
+  if (winnerNames.length > 0) raw['Winners'] = winnerNames.join('; ');
+
+  const fallback = `${SOURCE}:${referenceNo}`;
+  const patch: Record<string, unknown> = {
+    dedupKey: computeDedupKey(referenceNo, fallback),
+    referenceNo,
+    title,
+    status: 'closed',
+    procurementType: 'tender',
+    scrapedAt,
+    source: { source: SOURCE, sourceId: referenceNo, sourceUrl: PAGE_URL },
+    agency: AGENCY,
+    closingDate,
+    raw,
+  };
+  if (winnerNames.length > 0) {
+    patch.winners = winnerNames.map((name) => ({ name, price: null }));
+  }
+  return patch;
+}
+
+function splitByBr($: cheerio.CheerioAPI, el: Cheerio<AnyNode>): string[] {
+  const segments: string[] = [];
+  let current = '';
+  el.contents().each((_, node) => {
+    if ((node as { type?: string }).type === 'tag' && (node as { tagName?: string }).tagName === 'br') {
+      segments.push(current);
+      current = '';
+    } else {
+      current += $(node).text();
+    }
+  });
+  segments.push(current);
+  return segments.map((s) => clean(s)).filter((s) => s.length > 0);
 }

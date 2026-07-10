@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TenderPatchSchema } from '@tms/shared';
-import { parseOpenTenders } from '../src/scrapers/kwsp/parseListing.js';
+import { parseOpenTenders, parseResults } from '../src/scrapers/kwsp/parseListing.js';
 
 const NOW = () => '2026-07-11T12:00:00.000Z';
 
@@ -94,5 +94,93 @@ describe('parseOpenTenders — embedded card, exact values', () => {
     const [t] = parseOpenTenders(OPEN_CARD_HTML);
     expect(typeof t!.scrapedAt).toBe('string');
     expect(t!.scrapedAt.length).toBeGreaterThan(0);
+  });
+});
+
+const RESULTS_HTML = `<div class="card-bg">
+  <div class="accordion-card">
+    <div class="accordion-item">
+      <div class="accordion-header"><h3>March 2026</h3></div>
+      <div class="accordion-content">
+        <p>Cadangan Kerja-Kerja Penggantian Pam Di EPF Learning Campus<br> <em>Doc5446704109<br> MEDIINA WAWASAN RESOURCES</em></p>
+      </div>
+    </div>
+    <div class="accordion-item">
+      <div class="accordion-header"><h3>November 2025</h3></div>
+      <div class="accordion-content">
+        <p>Perkhidmatan Penghantaran Khidmat Pesanan Ringkas (SMS)<br> <em>Doc5248683420<br> Maxis Broadband Sdn Bhd<br> Celcom Berhad</em></p>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+const MALFORMED_RESULT_HTML = `<div class="card-bg">
+  <div class="accordion-card">
+    <div class="accordion-item">
+      <div class="accordion-header"><h3>March 2026</h3></div>
+      <div class="accordion-content">
+        <p>Title With No Reference Block At All</p>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+describe('parseResults — embedded entries, exact values', () => {
+  it('extracts a single-winner result entry, shaped as a TenderPatch', () => {
+    const results = parseResults(RESULTS_HTML, { now: NOW });
+    const t = results.find((r) => r.referenceNo === 'Doc5446704109');
+    expect(t).toBeDefined();
+    expect(t!.title).toBe('Cadangan Kerja-Kerja Penggantian Pam Di EPF Learning Campus');
+    expect(t!.status).toBe('closed');
+    expect(t!.procurementType).toBe('tender');
+    expect(t!.agency).toBe('Kumpulan Wang Simpanan Pekerja (KWSP)');
+    expect(t!.dedupKey).toBe('DOC5446704109');
+    expect(t!.closingDate).toBe('2026-03-01');
+    expect(t!.winners).toEqual([{ name: 'MEDIINA WAWASAN RESOURCES', price: null }]);
+    expect(t!.source).toEqual({
+      source: 'kwsp', sourceId: 'Doc5446704109',
+      sourceUrl: 'https://www.kwsp.gov.my/en/corporate/procurement/tenders',
+    });
+    expect(t).not.toHaveProperty('advertisedDate');
+    expect(() => TenderPatchSchema.parse(t)).not.toThrow();
+  });
+
+  it('splits multiple winners on <br> within the reference/winner block', () => {
+    const results = parseResults(RESULTS_HTML, { now: NOW });
+    const t = results.find((r) => r.referenceNo === 'Doc5248683420');
+    expect(t!.winners).toEqual([
+      { name: 'Maxis Broadband Sdn Bhd', price: null },
+      { name: 'Celcom Berhad', price: null },
+    ]);
+    expect(t!.closingDate).toBe('2025-11-01');
+  });
+
+  it('omits winners entirely (not []) when the reference block has no winner name', () => {
+    const noWinnerName = RESULTS_HTML.replace(
+      'Doc5446704109<br> MEDIINA WAWASAN RESOURCES', 'Doc5446704109',
+    );
+    const results = parseResults(noWinnerName, { now: NOW });
+    const t = results.find((r) => r.referenceNo === 'Doc5446704109');
+    expect(t).toBeDefined();
+    expect(t).not.toHaveProperty('winners');
+    expect(() => TenderPatchSchema.parse(t)).not.toThrow();
+  });
+
+  it('skips a result entry with no reference/winner block instead of throwing', () => {
+    expect(parseResults(MALFORMED_RESULT_HTML, { now: NOW })).toEqual([]);
+  });
+
+  it('falls back to Date.now() when ctx.now is not provided', () => {
+    const [t] = parseResults(RESULTS_HTML);
+    expect(typeof t!.scrapedAt).toBe('string');
+    expect(t!.scrapedAt.length).toBeGreaterThan(0);
+  });
+});
+
+describe('parseOpenTenders / parseResults — kept separate in the same document', () => {
+  it('does not let a Tender Results card leak into open tenders, or vice versa', () => {
+    const combined = OPEN_CARD_HTML + RESULTS_HTML;
+    expect(parseOpenTenders(combined, { now: NOW })).toHaveLength(1);
+    expect(parseResults(combined, { now: NOW })).toHaveLength(2);
   });
 });
