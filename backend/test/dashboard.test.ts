@@ -101,6 +101,12 @@ describe('buildDashboardStats', () => {
     expect(stats.byMinistry).toEqual([]);
   });
 
+  it('does not count a closed tender with an empty winners array as awarded', () => {
+    const stats = buildDashboardStats([makeTender({ winners: [] })]);
+    expect(stats.totalAwardedCount).toBe(0);
+    expect(stats.byMinistry).toEqual([]);
+  });
+
   it('does not count an open tender with winners as awarded', () => {
     const stats = buildDashboardStats([makeTender({ status: 'open' })]);
     expect(stats.totalAwardedCount).toBe(0);
