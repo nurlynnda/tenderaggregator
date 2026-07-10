@@ -1,0 +1,53 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { describe, expect, it } from 'vitest';
+import DashboardPage from '../pages/DashboardPage';
+import { defaultDashboardStats, server } from './mocks';
+
+function renderDashboard() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <DashboardPage />
+    </QueryClientProvider>,
+  );
+}
+
+describe('DashboardPage', () => {
+  it('shows headline totals', async () => {
+    renderDashboard();
+    expect(await screen.findByText('RM 1,000,000.00')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+  });
+
+  it('shows the excludes-N caption when excludedFromValueCount is greater than 0', async () => {
+    renderDashboard();
+    expect(await screen.findByText(/excludes 3 awards/i)).toBeInTheDocument();
+  });
+
+  it('hides the excludes caption when excludedFromValueCount is 0', async () => {
+    server.use(http.get('/api/dashboard', () => HttpResponse.json({ ...defaultDashboardStats, excludedFromValueCount: 0 })));
+    renderDashboard();
+    await screen.findByText('RM 1,000,000.00');
+    expect(screen.queryByText(/excludes/i)).not.toBeInTheDocument();
+  });
+
+  it('lists ministries by spend with value and count', async () => {
+    renderDashboard();
+    expect(await screen.findByText('KEMENTERIAN A')).toBeInTheDocument();
+    expect(screen.getByText(/RM 600,000\.00 \(3\)/)).toBeInTheDocument();
+  });
+
+  it('lists top contractors with wins and value', async () => {
+    renderDashboard();
+    expect(await screen.findByText('ACME SDN BHD')).toBeInTheDocument();
+    expect(screen.getByText(/5 wins/)).toBeInTheDocument();
+  });
+
+  it('shows awarded value by year in the order the API returned (ascending)', async () => {
+    renderDashboard();
+    const years = await screen.findAllByText(/^20\d{2}$/);
+    expect(years.map((el) => el.textContent)).toEqual(['2024', '2025']);
+  });
+});

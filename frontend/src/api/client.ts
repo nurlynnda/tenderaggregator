@@ -1,4 +1,4 @@
-import type { Facets, ScrapeSource, ScrapeStatus, TenderDetail, TenderPage } from './types';
+import type { DashboardStats, Facets, ScrapeSource, ScrapeStatus, TenderDetail, TenderPage } from './types';
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -41,4 +41,8 @@ export async function cancelScrape(): Promise<void> {
   const res = await fetch('/api/scrape/cancel', { method: 'POST' });
   if (res.status === 409) throw new Error('nothing running');
   if (!res.ok) throw new Error(`cancel failed: ${res.status}`);
+}
+
+export function fetchDashboard(): Promise<DashboardStats> {
+  return getJson('/api/dashboard');
 }

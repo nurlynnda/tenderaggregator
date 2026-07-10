@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import type { Facets, ScrapeSource, ScrapeStatus, Tender, TenderPage } from '../api/types';
+import type { DashboardStats, Facets, ScrapeSource, ScrapeStatus, Tender, TenderPage } from '../api/types';
 
 export function makeTender(overrides: Partial<Tender> = {}): Tender {
   return {
@@ -31,6 +31,23 @@ export const defaultSources: ScrapeSource[] = [
   { name: 'myprocurement', lastScrapedAt: '2026-07-07T00:00:00.000Z', lastArchiveBackfillAt: '2026-07-01T00:00:00.000Z', total: 5775 },
   { name: 'span', lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0 },
 ];
+export const defaultDashboardStats: DashboardStats = {
+  totalAwardedValue: 1000000,
+  totalAwardedCount: 42,
+  excludedFromValueCount: 3,
+  byMinistry: [
+    { ministry: 'KEMENTERIAN A', totalValue: 600000, count: 3 },
+    { ministry: 'KEMENTERIAN B', totalValue: 400000, count: 2 },
+  ],
+  topContractors: [
+    { name: 'ACME SDN BHD', wins: 5, totalValue: 700000 },
+    { name: 'BETA ENGINEERING', wins: 2, totalValue: 300000 },
+  ],
+  byYear: [
+    { year: 2024, totalValue: 400000 },
+    { year: 2025, totalValue: 600000 },
+  ],
+};
 
 export const handlers = [
   http.get('/api/tenders/facets', () => HttpResponse.json(defaultFacets)),
@@ -43,6 +60,7 @@ export const handlers = [
   http.post('/api/scrape', () => HttpResponse.json({ started: true }, { status: 202 })),
   http.get('/api/sources', () => HttpResponse.json(defaultSources)),
   http.post('/api/scrape/cancel', () => HttpResponse.json({ cancelled: true })),
+  http.get('/api/dashboard', () => HttpResponse.json(defaultDashboardStats)),
 ];
 
 export const server = setupServer(...handlers);
