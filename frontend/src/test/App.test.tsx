@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import App from '../App';
 
 describe('App', () => {
@@ -14,5 +15,11 @@ describe('App', () => {
   it('redirects the root route to Open Tenders, which renders the list', async () => {
     render(<App />);
     expect(await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).toBeInTheDocument();
+  });
+
+  it('renders a Settings link pinned in the nav, leading to the Settings page', async () => {
+    render(<App />);
+    await userEvent.click(screen.getByRole('link', { name: 'Settings' }));
+    expect(await screen.findByText('Data Sources')).toBeInTheDocument();
   });
 });
