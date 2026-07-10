@@ -91,6 +91,37 @@ describe('TenderRepository', () => {
     expect(t!.winners).toEqual([{ name: 'X', price: 1 }]);
   });
 
+  it('KWSP: preserves an open tender\'s advertisedDate when a later results patch (same dedupKey) never observed it, while updating status/closingDate/winners', async () => {
+    const { repo } = freshRepo();
+    await repo.load();
+    const openSource = {
+      source: 'kwsp', sourceId: 'sample-doc',
+      sourceUrl: 'https://www.kwsp.gov.my/documents/d/guest/sample-doc',
+    };
+    const resultsSource = {
+      source: 'kwsp', sourceId: 'Doc1234567890',
+      sourceUrl: 'https://www.kwsp.gov.my/en/corporate/procurement/tenders',
+    };
+    repo.mergeMany([makePatch({
+      dedupKey: 'DOC1234567890', referenceNo: 'Doc1234567890', title: 'Sample KWSP Tender',
+      procurementType: 'tender',
+      advertisedDate: '2026-07-01', closingDate: '2026-07-15',
+      scrapedAt: '2026-07-01T00:00:00.000Z', source: openSource,
+    })]);
+    repo.mergeMany([makePatch({
+      dedupKey: 'DOC1234567890', referenceNo: 'Doc1234567890', title: 'Sample KWSP Tender',
+      status: 'closed', procurementType: 'tender', closingDate: '2026-08-01',
+      scrapedAt: '2026-08-05T00:00:00.000Z', source: resultsSource,
+      winners: [{ name: 'Winner Sdn Bhd', price: null }],
+    })]);
+    const [t] = repo.getAll();
+    expect(t!.status).toBe('closed');
+    expect(t!.winners).toEqual([{ name: 'Winner Sdn Bhd', price: null }]);
+    expect(t!.closingDate).toBe('2026-08-01'); // the results patch's own (newer) value wins
+    expect(t!.advertisedDate).toBe('2026-07-01'); // never observed by the results patch — untouched
+    expect(t!.sources).toEqual([resultsSource]);
+  });
+
   it('ignores an older (out-of-order) patch for a field already set by a newer one', async () => {
     const { repo } = freshRepo();
     await repo.load();
