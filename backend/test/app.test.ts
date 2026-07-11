@@ -86,6 +86,17 @@ describe('API', () => {
     expect(res.body.total).toBe(1);
   });
 
+  it('GET /api/tenders supports closingFrom and closingTo as an inclusive date range', async () => {
+    repo.mergeMany([
+      patch({ closingDate: '2026-07-05' }),
+      patch({ closingDate: '2026-07-15' }),
+      patch({ closingDate: '2026-07-25' }),
+    ]);
+    const res = await request(app).get('/api/tenders?closingFrom=2026-07-10&closingTo=2026-07-20');
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+  });
+
   it('GET /api/tenders?hasWinners=false returns unfiltered results, not awarded-only', async () => {
     repo.mergeMany([patch({ winners: [{ name: 'X', price: 1 }] }), patch(), patch()]);
     const res = await request(app).get('/api/tenders?hasWinners=false');

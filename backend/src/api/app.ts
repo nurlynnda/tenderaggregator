@@ -17,6 +17,8 @@ const QuerySchema = z.object({
   agency: z.string().optional(),
   category: z.string().optional(),
   source: z.string().optional(),
+  closingFrom: z.string().optional(),
+  closingTo: z.string().optional(),
   status: z.enum(['open', 'closed']).optional(),
   procurementType: z.enum(['quotation', 'tender', 'requisition']).optional(),
   fieldCode: z.string().optional(),
