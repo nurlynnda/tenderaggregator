@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM mcr.microsoft.com/playwright:v1.61.1-noble
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY shared/package.json shared/

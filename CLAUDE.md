@@ -12,7 +12,7 @@ unavoidable, briefly say what it means in the same breath.
 ## Stack
 - npm workspaces monorepo: `shared/` (Zod tender schema), `backend/` (Express + scrapers,
   JSON-file storage in `backend/data/`), `frontend/` (React + Vite + Tailwind).
-- Node 22, TypeScript, ESM everywhere.
+- Node 24, TypeScript, ESM everywhere.
 
 ## Commands
 - `npm test` — run all workspace test suites (also runs on pre-commit via husky)
