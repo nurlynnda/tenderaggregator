@@ -35,6 +35,7 @@ parsed unchanged.
 | Topic | Decision |
 |---|---|
 | Docker base image | Switch `backend/Dockerfile` from `node:22-alpine` to Playwright's official Docker image, pinned to match the `playwright` npm package version. Alpine (musl libc) doesn't reliably support Playwright's bundled Chromium; hand-rolling the system dependency list on a fuller distro is fragile and would need to be kept in sync with every Playwright/Chrome update. Playwright's own image is the officially tested combination. |
+| Node version | Playwright's *latest* Docker image (1.61.1) bundles Node 24, not the project's current Node 22 — confirmed by checking Playwright's own Dockerfile source across versions (1.56.0 is the newest release still on Node 22; 1.57.0 and everything after moved to Node 24). Rather than pin an older Playwright to preserve Node 22, or leave a one-off Node 24 container: **the whole project moves to Node 24** — `backend/Dockerfile` (via the Playwright image), `frontend/Dockerfile`, and `CLAUDE.md`'s stated Node version all move together, so every environment (local dev, both containers) stays on one consistent Node version rather than splitting. |
 | Browser lifecycle | Launch a fresh headless Chrome per KWSP scrape call, close it when done. KWSP's entire scrape is a single page fetch (not paginated, not repeated per-job like SPAN's per-tender detail fetches), and scrapes happen infrequently (startup, on-demand rescrape) — a persistent background browser would hold real memory for a process that's idle almost all the time, for no latency benefit that matters here. |
 | Stealth/anti-detection tooling | None added. The throwaway test passed with plain Playwright (`headless: true`, a realistic desktop Chrome `User-Agent`, no other evasion). Adding stealth-plugin complexity now would be solving a problem not currently observed. |
 | Scope | Fetcher replacement only. `KwspAdapter` and `parseListing.ts` are unchanged — they already receive HTML text via an injected `(url) => Promise<unknown>` function and don't know or care how it was fetched. No new data extraction (KWSP's existing name-only "Winners" field on results stays as-is). MyProcurement and SPAN's fetchers are untouched. |
@@ -108,14 +109,23 @@ No other change to `index.ts`. `KwspAdapter`'s constructor signature
 
 ```diff
 - FROM node:22-alpine
-+ FROM mcr.microsoft.com/playwright:v<X.Y.Z>-noble
++ FROM mcr.microsoft.com/playwright:v1.61.1-noble
 ```
 
-(`<X.Y.Z>` pinned to exactly match the `playwright` version in `backend/package.json`, per
-Playwright's own guidance for avoiding a redundant browser download during
-`npm ci` inside the image build.) The rest of the Dockerfile — `WORKDIR`, the `COPY`
-steps, `npm ci --omit=dev --ignore-scripts ...`, `ENV DATA_DIR`, `EXPOSE`, `CMD` — is
-unchanged. `frontend/Dockerfile` and `docker-compose.yml` are untouched.
+`v1.61.1-noble` is pinned to exactly match the `playwright` version installed into
+`backend/package.json` (Task 1), per Playwright's own guidance for avoiding a redundant
+(and version-mismatched) browser install during `npm ci` inside the image build — the
+Dockerfile's `npm ci --omit=dev --ignore-scripts ...` already skips postinstall scripts
+(that flag predates this change, originally to skip husky's git-hook setup in a
+container with no `.git`), so the browser Playwright's Node API expects at runtime must
+already be present in the base image at the exact matching version; there's no
+postinstall download step to fall back on inside the container. The rest of the
+Dockerfile — `WORKDIR`, the `COPY` steps, `ENV DATA_DIR`, `EXPOSE`, `CMD` — is unchanged.
+
+This image bundles Node 24 (see "Node version" above), so `frontend/Dockerfile`'s
+`FROM node:22-alpine AS build` also moves to `FROM node:24-alpine AS build`, and
+`CLAUDE.md`'s "Node 22, TypeScript, ESM everywhere" line updates to "Node 24, ...". No
+other change to `frontend/Dockerfile` or `docker-compose.yml`.
 
 ## Local dev
 
