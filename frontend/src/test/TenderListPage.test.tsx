@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -129,6 +129,20 @@ describe('TenderListPage', () => {
     await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
     await userEvent.selectOptions(await screen.findByLabelText(/^source/i), 'span');
     await waitFor(() => expect(requests.some((u) => u.includes('source=span'))).toBe(true));
+  });
+
+  it('sends closingFrom and closingTo as query params when the date range is set', async () => {
+    const requests: string[] = [];
+    server.use(http.get('/api/tenders', ({ request }) => {
+      requests.push(request.url);
+      return HttpResponse.json(defaultPage);
+    }));
+    renderList(<TenderListPage status="open" />);
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+    fireEvent.change(screen.getByLabelText(/closing from/i), { target: { value: '2026-07-10' } });
+    fireEvent.change(screen.getByLabelText(/closing to/i), { target: { value: '2026-07-20' } });
+    await waitFor(() => expect(requests.some((u) =>
+      u.includes('closingFrom=2026-07-10') && u.includes('closingTo=2026-07-20'))).toBe(true));
   });
 
   it('sends search text as a query param (debounced)', async () => {

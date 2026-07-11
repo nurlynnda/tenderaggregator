@@ -40,6 +40,8 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
   const [contractor, setContractor] = useState('');
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [fieldCode, setFieldCode] = useState('');
+  const [closingFrom, setClosingFrom] = useState('');
+  const [closingTo, setClosingTo] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('advertisedDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -59,6 +61,8 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
     ...(hasWinners ? { hasWinners: 'true' } : {}),
     ...(hasWinners && contractor ? { contractor } : {}),
     ...(fieldCode ? { fieldCode } : {}),
+    ...(closingFrom ? { closingFrom } : {}),
+    ...(closingTo ? { closingTo } : {}),
     ...filters,
   };
   const { data: pageData } = useQuery({
@@ -114,6 +118,24 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
           </label>
         )}
         <FieldCodeFilter value={fieldCode} onChange={(c) => { setFieldCode(c); setPage(1); }} />
+        <label className="flex flex-col text-[10px] gap-1">
+          Closing from
+          <input
+            type="date"
+            className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
+            value={closingFrom}
+            onChange={(e) => { setClosingFrom(e.target.value); setPage(1); }}
+          />
+        </label>
+        <label className="flex flex-col text-[10px] gap-1">
+          Closing to
+          <input
+            type="date"
+            className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
+            value={closingTo}
+            onChange={(e) => { setClosingTo(e.target.value); setPage(1); }}
+          />
+        </label>
       </div>
 
       <div className="overflow-x-auto border border-[#e0e0e0] rounded-lg">
