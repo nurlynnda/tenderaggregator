@@ -29,6 +29,12 @@ unavoidable, briefly say what it means in the same breath.
 5. Tests must NEVER hit the real myprocurement.treasury.gov.my. Use fixtures in
    `backend/test/fixtures/` and injected fakes.
 
+## E2E verification
+
+After implementing any feature with browser-visible behavior, verify it live
+using the Playwright MCP tools before reporting the work complete — see
+`.claude/skills/e2e-playwright-verification/SKILL.md`.
+
 ## Key design rules (see docs/superpowers/specs/2026-07-07-tender-aggregator-design.md)
 - All scrapers emit the shared `Tender` schema (`shared/src/tender.ts`). Zod-validate
   every record; invalid records are logged and skipped, never stored.
