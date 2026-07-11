@@ -156,6 +156,7 @@ describe('SpanAdapter — job model', () => {
       throw new Error(`unexpected url: ${url}`);
     });
     const adapter = new SpanAdapter(fetcher, FIXED_NOW);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const done: string[] = [];
     const batches: TenderPatch[][] = [];
     await adapter.scrape('open', {
@@ -165,9 +166,11 @@ describe('SpanAdapter — job model', () => {
     });
 
     expect(done).toEqual(['open-2026']);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('https://www.span.gov.my/tender/view/2'));
     const winnerBatches = batches.filter((b) => b[0]?.winners !== undefined);
     expect(winnerBatches).toHaveLength(1);
     expect(winnerBatches[0]![0]!.source.sourceId).toBe('3');
+    warnSpy.mockRestore();
   });
 
   it('stops the detail-fetch loop when isCancelled reports true partway through', async () => {

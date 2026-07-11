@@ -63,7 +63,7 @@ export const TenderPatchSchema = z.object({
   closingDate: z.string().nullable().optional(),
   indicativePrice: z.number().nullable().optional(),
   events: z.array(TenderEventSchema).optional(),
-  winners: z.array(WinnerSchema).optional(),
+  winners: z.array(WinnerSchema).nullable().optional(),
   raw: z.record(z.string()).optional(),
 });
 export type TenderPatch = z.infer<typeof TenderPatchSchema>;
