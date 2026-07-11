@@ -86,6 +86,40 @@ describe('queryTenders', () => {
     expect(queryTenders(data, { source: 'nonexistent' }).total).toBe(0);
   });
 
+  it('filters by closingFrom, inclusive, excluding tenders with a null closingDate', () => {
+    const data = [
+      t({ closingDate: '2026-07-10' }),
+      t({ closingDate: '2026-07-15' }),
+      t({ closingDate: '2026-07-20' }),
+      t({ closingDate: null }),
+    ];
+    expect(queryTenders(data, { closingFrom: '2026-07-15' }).total).toBe(2);
+    expect(queryTenders(data, { closingFrom: '2026-07-10' }).total).toBe(3);
+  });
+
+  it('filters by closingTo, inclusive, excluding tenders with a null closingDate', () => {
+    const data = [
+      t({ closingDate: '2026-07-10' }),
+      t({ closingDate: '2026-07-15' }),
+      t({ closingDate: '2026-07-20' }),
+      t({ closingDate: null }),
+    ];
+    expect(queryTenders(data, { closingTo: '2026-07-15' }).total).toBe(2);
+    expect(queryTenders(data, { closingTo: '2026-07-20' }).total).toBe(3);
+  });
+
+  it('filters by closingFrom and closingTo together as an inclusive range', () => {
+    const data = [
+      t({ closingDate: '2026-07-05' }),
+      t({ closingDate: '2026-07-15' }),
+      t({ closingDate: '2026-07-25' }),
+      t({ closingDate: null }),
+    ];
+    const page = queryTenders(data, { closingFrom: '2026-07-10', closingTo: '2026-07-20' });
+    expect(page.total).toBe(1);
+    expect(page.items[0]!.closingDate).toBe('2026-07-15');
+  });
+
   it('sorts by price desc with nulls last, paginates with total', () => {
     const data = [t({ indicativePrice: 5 }), t({ indicativePrice: null }), t({ indicativePrice: 99 })];
     const page = queryTenders(data, { sortBy: 'indicativePrice', sortOrder: 'desc', page: 1, pageSize: 2 });

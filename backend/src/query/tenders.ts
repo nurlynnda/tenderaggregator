@@ -6,6 +6,8 @@ export interface TenderQuery {
   agency?: string;
   category?: string;
   source?: string;
+  closingFrom?: string;
+  closingTo?: string;
   status?: 'open' | 'closed';
   procurementType?: 'quotation' | 'tender' | 'requisition';
   fieldCode?: string;
@@ -48,6 +50,12 @@ export function queryTenders(tenders: Tender[], q: TenderQuery): TenderPage {
   if (q.agency) items = items.filter((t) => t.agency === q.agency);
   if (q.category) items = items.filter((t) => t.category === q.category);
   if (q.source) items = items.filter((t) => t.sources.some((s) => s.source === q.source));
+  if (q.closingFrom) {
+    items = items.filter((t) => t.closingDate !== null && t.closingDate >= q.closingFrom!);
+  }
+  if (q.closingTo) {
+    items = items.filter((t) => t.closingDate !== null && t.closingDate <= q.closingTo!);
+  }
   if (q.status) items = items.filter((t) => t.status === q.status);
   if (q.procurementType) items = items.filter((t) => t.procurementType === q.procurementType);
   if (q.fieldCode) items = items.filter((t) => t.fieldCodes.some((c) => c.startsWith(q.fieldCode!)));
