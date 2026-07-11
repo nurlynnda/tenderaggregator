@@ -105,4 +105,104 @@ describe('SpanAdapter — job model', () => {
     expect(fetcher).toHaveBeenCalledTimes(1); // only the first (2025) year fetched before stopping
     expect(batches).toHaveLength(1);
   });
+
+  // Real winner block from span.gov.my/tender/view/147 (captured 2026-07-11), simplified
+  // to a single row — Task 1's parser tests already cover layout variants exhaustively,
+  // so these adapter tests only need to prove the wiring, not the parsing.
+  const WINNER_DETAIL_HTML = `<table><tbody>
+<tr><td>Nama Pembekal</td><td>UMPSA SERVICES SDN BHD</td><td>Harga Tawaran</td><td>RM132,192.00</td></tr>
+</tbody></table>`;
+
+  it('fetches the detail page for each closed tender and merges winners into a follow-up batch', async () => {
+    const listingHtml = pageHtml(1, 'REF/OPEN', 'Diiklankan') + pageHtml(2, 'REF/CLOSED', 'Selesai');
+    const fetcher = vi.fn(async (url: string) => {
+      if (url === 'https://www.span.gov.my/tender/2026') return listingHtml;
+      if (url === 'https://www.span.gov.my/tender/view/2') return WINNER_DETAIL_HTML;
+      throw new Error(`unexpected url: ${url}`);
+    });
+    const adapter = new SpanAdapter(fetcher, FIXED_NOW);
+    const batches: TenderPatch[][] = [];
+    await adapter.scrape('open', { onProgress: () => {}, onBatch: async (t) => { batches.push(t); } });
+
+    expect(fetcher).toHaveBeenCalledWith('https://www.span.gov.my/tender/view/2');
+    expect(fetcher).not.toHaveBeenCalledWith('https://www.span.gov.my/tender/view/1');
+    const detailBatch = batches.find((b) => b[0]?.winners !== undefined);
+    expect(detailBatch).toBeDefined();
+    expect(detailBatch![0]!.source.sourceId).toBe('2');
+    expect(detailBatch![0]!.winners).toEqual([{ name: 'UMPSA SERVICES SDN BHD', price: 132192 }]);
+  });
+
+  it('records winners: null when a closed tender detail page has no winner yet', async () => {
+    const listingHtml = pageHtml(2, 'REF/CLOSED', 'Selesai');
+    const fetcher = vi.fn(async (url: string) => {
+      if (url === 'https://www.span.gov.my/tender/2026') return listingHtml;
+      return '<p>Dibatalkan</p>';
+    });
+    const adapter = new SpanAdapter(fetcher, FIXED_NOW);
+    const batches: TenderPatch[][] = [];
+    await adapter.scrape('open', { onProgress: () => {}, onBatch: async (t) => { batches.push(t); } });
+
+    const detailBatch = batches.find((b) => b[0]?.winners !== undefined);
+    expect(detailBatch).toBeDefined();
+    expect(detailBatch![0]!.winners).toBeNull();
+  });
+
+  it('skips a tender whose detail fetch fails, without aborting the job', async () => {
+    const listingHtml = pageHtml(2, 'REF/A', 'Selesai') + pageHtml(3, 'REF/B', 'Selesai');
+    const fetcher = vi.fn(async (url: string) => {
+      if (url === 'https://www.span.gov.my/tender/2026') return listingHtml;
+      if (url === 'https://www.span.gov.my/tender/view/2') throw new Error('timeout');
+      if (url === 'https://www.span.gov.my/tender/view/3') return WINNER_DETAIL_HTML;
+      throw new Error(`unexpected url: ${url}`);
+    });
+    const adapter = new SpanAdapter(fetcher, FIXED_NOW);
+    const done: string[] = [];
+    const batches: TenderPatch[][] = [];
+    await adapter.scrape('open', {
+      onProgress: () => {},
+      onBatch: async (t) => { batches.push(t); },
+      onJobDone: (name) => done.push(name),
+    });
+
+    expect(done).toEqual(['open-2026']);
+    const winnerBatches = batches.filter((b) => b[0]?.winners !== undefined);
+    expect(winnerBatches).toHaveLength(1);
+    expect(winnerBatches[0]![0]!.source.sourceId).toBe('3');
+  });
+
+  it('stops the detail-fetch loop when isCancelled reports true partway through', async () => {
+    const listingHtml = pageHtml(2, 'REF/A', 'Selesai') + pageHtml(3, 'REF/B', 'Selesai');
+    const fetcher = vi.fn(async (url: string) => {
+      if (url === 'https://www.span.gov.my/tender/2026') return listingHtml;
+      return WINNER_DETAIL_HTML;
+    });
+    const adapter = new SpanAdapter(fetcher, FIXED_NOW);
+    let cancel = false;
+    const batches: TenderPatch[][] = [];
+    await adapter.scrape('open', {
+      onProgress: () => {},
+      onBatch: async (t) => { batches.push(t); if (t[0]!.winners !== undefined) cancel = true; },
+    }, { isCancelled: () => cancel });
+
+    expect(batches).toHaveLength(2); // listing batch + exactly one detail batch
+    expect(fetcher).toHaveBeenCalledTimes(2); // listing fetch + first detail fetch only
+  });
+
+  it('reports detail-fetch progress as currentPage/lastPage over the closed tenders in the job', async () => {
+    const listingHtml = pageHtml(2, 'REF/A', 'Selesai') + pageHtml(3, 'REF/B', 'Selesai');
+    const fetcher = vi.fn(async (url: string) => {
+      if (url === 'https://www.span.gov.my/tender/2026') return listingHtml;
+      return WINNER_DETAIL_HTML;
+    });
+    const adapter = new SpanAdapter(fetcher, FIXED_NOW);
+    const progress: unknown[] = [];
+    await adapter.scrape('open', { onProgress: (p) => progress.push({ ...p }), onBatch: async () => {} });
+
+    expect(progress).toContainEqual({
+      source: 'span', job: 'open-2026', jobsCompleted: 0, jobsTotal: 1, currentPage: 1, lastPage: 2,
+    });
+    expect(progress).toContainEqual({
+      source: 'span', job: 'open-2026', jobsCompleted: 0, jobsTotal: 1, currentPage: 2, lastPage: 2,
+    });
+  });
 });

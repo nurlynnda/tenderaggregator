@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import type { ScrapeHooks, ScrapeOptions, ScrapeScope, ScraperAdapter } from '../types.js';
 import { parseSpanListingHtml } from './parseListing.js';
+import { parseSpanDetailWinners } from './parseDetail.js';
+import type { Winner } from '@tms/shared';
 
 const BASE_URL = 'https://www.span.gov.my/tender';
 const MIN_YEAR = 2017;
@@ -62,6 +64,29 @@ export class SpanAdapter implements ScraperAdapter {
       });
       const patches = parseSpanListingHtml(html);
       await hooks.onBatch(patches);
+
+      const closedPatches = patches.filter((p) => p.status === 'closed');
+      for (const [detailIndex, patch] of closedPatches.entries()) {
+        if (opts.isCancelled?.()) return;
+        hooks.onProgress({
+          source: this.name,
+          job: name,
+          jobsCompleted: jobIndex,
+          jobsTotal: jobs.length,
+          currentPage: detailIndex + 1,
+          lastPage: closedPatches.length,
+        });
+        let winners: Winner[];
+        try {
+          const detailHtml = HtmlResponse.parse(await this.fetcher(patch.source.sourceUrl));
+          winners = parseSpanDetailWinners(detailHtml);
+        } catch (err) {
+          console.warn(`[span] skipping detail fetch for ${patch.source.sourceUrl}: ${err}`);
+          continue;
+        }
+        await hooks.onBatch([{ ...patch, winners: winners.length > 0 ? winners : null }]);
+      }
+
       await hooks.onJobDone?.(name);
     }
   }
