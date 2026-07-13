@@ -32,12 +32,17 @@ function isAwarded(t: Tender): boolean {
   return t.status === 'closed' && t.winners !== null && t.winners.length > 0;
 }
 
-// Scraped winner names sometimes vary by case, whitespace, or a trailing period
-// for the same real-world contractor (e.g. "AIM CONCEPT SDN. BHD." vs
-// "AIM CONCEPT SDN. BHD"). Normalize before grouping so these aren't split
-// into separate dashboard entries.
+// Scraped winner names sometimes vary by case, whitespace, a trailing period, or
+// how the "Sdn Bhd" suffix is punctuated (e.g. "SDN. BHD" vs "SDN BHD" vs
+// "SDN.BHD") for the same real-world contractor. Normalize before grouping so
+// these aren't split into separate dashboard entries.
 function normalizeContractorName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ').toUpperCase().replace(/\.+$/, '');
+  return name
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase()
+    .replace(/\.+$/, '')
+    .replace(/\bSDN\.?\s*BHD\.?\b/, 'SDN BHD');
 }
 
 // Some contractors re-register under a new legal name (e.g. converting from a
@@ -45,7 +50,8 @@ function normalizeContractorName(name: string): string {
 // these are genuinely different strings that normalizeContractorName can't
 // unify on its own. Keyed and valued by the already-normalized name.
 const CONTRACTOR_NAME_ALIASES: Record<string, string> = {
-  'INFOMINA SDN. BHD': 'INFOMINA BERHAD',
+  'INFOMINA SDN BHD': 'INFOMINA BERHAD',
+  'ITMAX SYSTEM SDN BHD': 'ITMAX SYSTEM BERHAD',
 };
 
 function canonicalizeContractorName(name: string): string {

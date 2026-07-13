@@ -60,20 +60,37 @@ describe('buildDashboardStats', () => {
     const matches = stats.allContractors.filter((c) => c.name.toUpperCase().includes('AIM CONCEPT'));
     expect(matches).toHaveLength(1);
     expect(matches[0]).toEqual({
-      name: 'AIM CONCEPT SDN. BHD',
+      name: 'AIM CONCEPT SDN BHD',
       wins: 4,
       totalValue: 428000000 + 579777774.61 + 383040113.49 + 1,
     });
+  });
+
+  it('merges contractor winners whose "Sdn Bhd" suffix is punctuated inconsistently', () => {
+    const stats = buildDashboardStats([
+      makeTender({ winners: [{ name: 'TRICOMAS DINAMIK SDN. BHD', price: 100 }] }),
+      makeTender({ winners: [{ name: 'TRICOMAS DINAMIK SDN BHD', price: 50 }] }),
+      makeTender({ winners: [{ name: 'TRICOMAS DINAMIK SDN.BHD', price: 25 }] }),
+    ]);
+    const matches = stats.allContractors.filter((c) => c.name.includes('TRICOMAS'));
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toEqual({ name: 'TRICOMAS DINAMIK SDN BHD', wins: 3, totalValue: 175 });
   });
 
   it('merges a contractor known to have re-registered under a new legal name', () => {
     const stats = buildDashboardStats([
       makeTender({ winners: [{ name: 'Infomina Berhad', price: 100 }] }),
       makeTender({ winners: [{ name: 'Infomina Sdn. Bhd.', price: 50 }] }),
+      makeTender({ winners: [{ name: 'Itmax System Berhad', price: 10 }] }),
+      makeTender({ winners: [{ name: 'Itmax System Sdn. Bhd.', price: 5 }] }),
     ]);
-    const matches = stats.allContractors.filter((c) => c.name.toUpperCase().includes('INFOMINA'));
-    expect(matches).toHaveLength(1);
-    expect(matches[0]).toEqual({ name: 'INFOMINA BERHAD', wins: 2, totalValue: 150 });
+    const infomina = stats.allContractors.filter((c) => c.name.includes('INFOMINA'));
+    expect(infomina).toHaveLength(1);
+    expect(infomina[0]).toEqual({ name: 'INFOMINA BERHAD', wins: 2, totalValue: 150 });
+
+    const itmax = stats.allContractors.filter((c) => c.name.includes('ITMAX'));
+    expect(itmax).toHaveLength(1);
+    expect(itmax[0]).toEqual({ name: 'ITMAX SYSTEM BERHAD', wins: 2, totalValue: 15 });
   });
 
   it('groups a null ministry under "Unknown"', () => {
