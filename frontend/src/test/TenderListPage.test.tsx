@@ -94,6 +94,22 @@ describe('TenderListPage', () => {
     expect(screen.queryByRole('columnheader', { name: /price won/i })).not.toBeInTheDocument();
   });
 
+  it('hides the Ministry and Type columns when hasWinners is set (Awarded Tenders)', async () => {
+    renderList(<TenderListPage status="closed" hasWinners />);
+    const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
+    expect(screen.queryByRole('columnheader', { name: /^ministry$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^type$/i })).not.toBeInTheDocument();
+    expect(within(row).queryByText('KEMENTERIAN PENDIDIKAN TINGGI')).not.toBeInTheDocument();
+  });
+
+  it('shows the Ministry and Type columns when hasWinners is not set', async () => {
+    renderList(<TenderListPage status="open" />);
+    const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
+    expect(screen.getByRole('columnheader', { name: /^ministry$/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /^type$/i })).toBeInTheDocument();
+    expect(within(row).getByText('KEMENTERIAN PENDIDIKAN TINGGI')).toBeInTheDocument();
+  });
+
   it('shows a free-text Contractor filter only on hasWinners pages, sending it as a query param (debounced)', async () => {
     const requests: string[] = [];
     server.use(http.get('/api/tenders', ({ request }) => {

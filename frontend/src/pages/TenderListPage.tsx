@@ -175,8 +175,8 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
             <tr>
               <th className="px-3 py-2 uppercase tracking-wide w-full">Title</th>
               <th className="px-3 py-2 uppercase tracking-wide">Reference No</th>
-              <th className="px-3 py-2 uppercase tracking-wide">Ministry</th>
-              <th className="px-3 py-2 uppercase tracking-wide">Type</th>
+              {!hasWinners && <th className="px-3 py-2 uppercase tracking-wide">Ministry</th>}
+              {!hasWinners && <th className="px-3 py-2 uppercase tracking-wide">Type</th>}
               <th className="px-3 py-2 uppercase tracking-wide">
                 <button onClick={() => toggleSort('closingDate')}>Closing Date{sortIndicator('closingDate')}</button>
               </th>
@@ -197,8 +197,8 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
                 <td className="px-3 py-2">
                   <div className="w-28 break-all">{t.referenceNo}</div>
                 </td>
-                <td className="px-3 py-2">{t.ministry ?? '—'}</td>
-                <td className="px-3 py-2 capitalize">{t.procurementType ?? '—'}</td>
+                {!hasWinners && <td className="px-3 py-2">{t.ministry ?? '—'}</td>}
+                {!hasWinners && <td className="px-3 py-2 capitalize">{t.procurementType ?? '—'}</td>}
                 <td className="px-3 py-2 whitespace-nowrap">{formatDate(t.closingDate) ?? '—'}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   {t.fieldCodes.length === 0
