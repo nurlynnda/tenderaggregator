@@ -28,9 +28,11 @@ describe('DetailPage', () => {
     expect(screen.getByText('UTHM')).toBeInTheDocument();
     expect(screen.getByText('Perkhidmatan Bukan Perunding')).toBeInTheDocument();
     expect(screen.getByText('060501')).toBeInTheDocument();
-    expect(screen.getByText('2026-07-17')).toBeInTheDocument();
+    expect(screen.getByText('17-07-2026')).toBeInTheDocument();
+    expect(screen.getByText('07-07-2026')).toBeInTheDocument();
     expect(screen.getByText(/RM\s*28,800/)).toBeInTheDocument();
     expect(screen.getByText('Lawatan Tapak')).toBeInTheDocument();
+    expect(screen.getByText('10-07-2026')).toBeInTheDocument();
     expect(screen.getByText('MAKMAL OR, KAJANG')).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /view on official site/i });
     expect(link).toHaveAttribute('href', 'https://example.com/1');

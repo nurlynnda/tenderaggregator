@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { fetchTender } from '../api/client';
 import type { Tender } from '../api/types';
+import { formatDate } from '../lib/format';
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -19,6 +20,7 @@ function formatWinners(winners: NonNullable<Tender['winners']>): string {
 }
 
 export default function DetailPage() {
+  const navigate = useNavigate();
   const { refNo } = useParams<{ refNo: string }>();
   const { data, isError } = useQuery({
     queryKey: ['tender', refNo],
@@ -32,7 +34,9 @@ export default function DetailPage() {
 
   return (
     <div className="max-w-4xl space-y-6 text-[12px]">
-      <Link to="/open" className="text-blue-700 underline">← Back to all tenders</Link>
+      <button type="button" onClick={() => navigate(-1)} className="text-blue-700 underline">
+        ← Back to all tenders
+      </button>
       <h1 className="font-semibold">{t.title}</h1>
       <a
         href={t.sources[0]!.sourceUrl}
@@ -54,8 +58,8 @@ export default function DetailPage() {
         <Field label="Agency" value={t.agency} />
         <Field label="Category" value={t.category} />
         <Field label="Field Codes" value={t.fieldCodes.length ? t.fieldCodes.join(', ') : null} />
-        <Field label="Advertised" value={t.advertisedDate} />
-        <Field label="Closing" value={t.closingDate} />
+        <Field label="Advertised" value={formatDate(t.advertisedDate)} />
+        <Field label="Closing" value={formatDate(t.closingDate)} />
         <Field
           label="Indicative Price"
           value={t.indicativePrice === null ? null
@@ -81,7 +85,7 @@ export default function DetailPage() {
               {t.events.map((e, i) => (
                 <tr key={i}>
                   <td className="px-3 py-2">{e.label}</td>
-                  <td className="px-3 py-2">{e.date ?? '—'}</td>
+                  <td className="px-3 py-2">{formatDate(e.date) ?? '—'}</td>
                   <td className="px-3 py-2">{e.address ?? '—'}</td>
                 </tr>
               ))}

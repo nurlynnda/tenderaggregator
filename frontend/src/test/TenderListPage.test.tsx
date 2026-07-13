@@ -2,10 +2,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import TenderListPage from '../pages/TenderListPage';
 import { defaultPage, makeTender, server } from './mocks';
+
+function FakeDetailPage() {
+  const navigate = useNavigate();
+  return (
+    <div>
+      DETAIL PAGE
+      <button onClick={() => navigate(-1)}>BACK</button>
+    </div>
+  );
+}
 
 function renderList(ui: React.ReactElement, { route = '/' } = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -14,7 +24,7 @@ function renderList(ui: React.ReactElement, { route = '/' } = {}) {
       <MemoryRouter initialEntries={[route]}>
         <Routes>
           <Route path="/" element={ui} />
-          <Route path="/tenders/:refNo" element={<div>DETAIL PAGE</div>} />
+          <Route path="/tenders/:refNo" element={<FakeDetailPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -211,6 +221,33 @@ describe('TenderListPage', () => {
     renderList(<TenderListPage status="open" />);
     await userEvent.click(await screen.findByText('MENYELENGGARA PERALATAN MAKMAL'));
     expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument();
+  });
+
+  it('keeps the ministry filter selected after navigating to a detail page and back', async () => {
+    const requests: string[] = [];
+    server.use(http.get('/api/tenders', ({ request }) => {
+      requests.push(request.url);
+      return HttpResponse.json(defaultPage);
+    }));
+    renderList(<TenderListPage status="open" />);
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+    await userEvent.selectOptions(
+      await screen.findByLabelText(/ministry/i),
+      'KEMENTERIAN PENDIDIKAN TINGGI',
+    );
+    await waitFor(() =>
+      expect(requests.some((u) => u.includes('ministry=KEMENTERIAN'))).toBe(true));
+
+    await userEvent.click(await screen.findByText('MENYELENGGARA PERALATAN MAKMAL'));
+    expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument();
+
+    requests.length = 0;
+    await userEvent.click(screen.getByText('BACK'));
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+
+    expect(screen.getByLabelText(/ministry/i)).toHaveValue('KEMENTERIAN PENDIDIKAN TINGGI');
+    await waitFor(() =>
+      expect(requests.some((u) => u.includes('ministry=KEMENTERIAN'))).toBe(true));
   });
 
   it('renders "—" for a null procurementType', async () => {

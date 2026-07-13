@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Tender } from '../api/types';
 import { fetchFacets, fetchTenders } from '../api/client';
 import FieldCodeFilter from '../components/FieldCodeFilter';
+import { formatDate } from '../lib/format';
 
 type SortBy = 'advertisedDate' | 'closingDate' | 'indicativePrice';
 
@@ -34,17 +35,27 @@ interface Props {
 
 export default function TenderListPage({ status, hasWinners = false }: Props) {
   const navigate = useNavigate();
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
-  const [contractorInput, setContractorInput] = useState('');
-  const [contractor, setContractor] = useState('');
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [fieldCode, setFieldCode] = useState('');
-  const [closingFrom, setClosingFrom] = useState('');
-  const [closingTo, setClosingTo] = useState('');
-  const [sortBy, setSortBy] = useState<SortBy>('advertisedDate');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') ?? '');
+  const [search, setSearch] = useState(searchParams.get('search') ?? '');
+  const [contractorInput, setContractorInput] = useState(searchParams.get('contractor') ?? '');
+  const [contractor, setContractor] = useState(searchParams.get('contractor') ?? '');
+  const [filters, setFilters] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const f of FILTERS) {
+      const v = searchParams.get(f.key);
+      if (v) initial[f.key] = v;
+    }
+    return initial;
+  });
+  const [fieldCode, setFieldCode] = useState(searchParams.get('fieldCode') ?? '');
+  const [closingFrom, setClosingFrom] = useState(searchParams.get('closingFrom') ?? '');
+  const [closingTo, setClosingTo] = useState(searchParams.get('closingTo') ?? '');
+  const [sortBy, setSortBy] = useState<SortBy>((searchParams.get('sortBy') as SortBy) ?? 'advertisedDate');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(
+    (searchParams.get('sortOrder') as 'asc' | 'desc') ?? 'desc',
+  );
+  const [page, setPage] = useState(Number(searchParams.get('page') ?? '1'));
 
   useEffect(() => {
     const h = setTimeout(() => { setSearch(searchInput); setPage(1); }, 300);
@@ -55,6 +66,22 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
     const h = setTimeout(() => { setContractor(contractorInput); setPage(1); }, 300);
     return () => clearTimeout(h);
   }, [contractorInput]);
+
+  useEffect(() => {
+    const next: Record<string, string> = {
+      ...(search ? { search } : {}),
+      ...(hasWinners && contractor ? { contractor } : {}),
+      ...(fieldCode ? { fieldCode } : {}),
+      ...(closingFrom ? { closingFrom } : {}),
+      ...(closingTo ? { closingTo } : {}),
+      ...(sortBy !== 'advertisedDate' ? { sortBy } : {}),
+      ...(sortOrder !== 'desc' ? { sortOrder } : {}),
+      ...(page !== 1 ? { page: String(page) } : {}),
+      ...filters,
+    };
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, contractor, fieldCode, closingFrom, closingTo, sortBy, sortOrder, page, filters, hasWinners]);
 
   const params: Record<string, string> = {
     search, status, sortBy, sortOrder, page: String(page),
@@ -166,7 +193,7 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
                 <td className="px-3 py-2 whitespace-nowrap">{t.referenceNo}</td>
                 <td className="px-3 py-2">{t.ministry ?? '—'}</td>
                 <td className="px-3 py-2 capitalize">{t.procurementType ?? '—'}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{t.closingDate ?? '—'}</td>
+                <td className="px-3 py-2 whitespace-nowrap">{formatDate(t.closingDate) ?? '—'}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   {t.fieldCodes.length === 0
                     ? '—'
