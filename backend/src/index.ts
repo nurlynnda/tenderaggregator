@@ -81,7 +81,11 @@ async function main() {
     loadLastRunDate: () => dailyRunState.load(),
     saveLastRunDate: (date) => dailyRunState.save(date),
   });
-  await dailyScheduler.start();
+  try {
+    await dailyScheduler.start();
+  } catch (err) {
+    console.error('[daily] scheduler failed to start; continuing without it:', err);
+  }
 
   createApp({ repo, manager }).listen(PORT, () => {
     console.log(`backend listening on :${PORT}`);
