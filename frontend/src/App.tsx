@@ -54,7 +54,7 @@ export default function App() {
                 <Route path="/dashboard/ministries" element={<MinistryDetailPage />} />
                 <Route path="/dashboard/contractors" element={<ContractorDetailPage />} />
                 <Route path="/" element={<Navigate to="/open" replace />} />
-                <Route path="/open" element={<TenderListPage status="open" />} />
+                <Route path="/open" element={<TenderListPage status="open" showHeader />} />
                 <Route path="/closed" element={<TenderListPage status="closed" />} />
                 <Route path="/awarded" element={<TenderListPage status="closed" hasWinners />} />
                 <Route path="/tenders/:refNo" element={<DetailPage />} />
