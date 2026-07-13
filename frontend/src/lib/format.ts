@@ -2,6 +2,10 @@ export function formatMYR(n: number): string {
   return `RM ${n.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`;
 }
 
+export function formatCount(n: number): string {
+  return n.toLocaleString('en-MY');
+}
+
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export function formatDate(date: string | null): string | null {

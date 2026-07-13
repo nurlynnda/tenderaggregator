@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatMYR } from '../lib/format';
+import { formatCount, formatDate, formatMYR } from '../lib/format';
 
 describe('formatMYR', () => {
   it('formats a number with thousands separators and 2 decimal places, RM-prefixed', () => {
@@ -12,6 +12,20 @@ describe('formatMYR', () => {
 
   it('formats a whole number with two trailing zeros', () => {
     expect(formatMYR(600000)).toBe('RM 600,000.00');
+  });
+});
+
+describe('formatCount', () => {
+  it('adds thousands separators to a whole number', () => {
+    expect(formatCount(139389)).toBe('139,389');
+  });
+
+  it('leaves a number under 1000 unchanged', () => {
+    expect(formatCount(42)).toBe('42');
+  });
+
+  it('formats zero as "0"', () => {
+    expect(formatCount(0)).toBe('0');
   });
 });
 

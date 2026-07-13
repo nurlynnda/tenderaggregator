@@ -316,42 +316,17 @@ describe('TenderListPage', () => {
     expect(within(row).getByText('—')).toBeInTheDocument();
   });
 
-  describe('showHeader (Open Tenders page)', () => {
-    it('renders the page title and description', async () => {
-      renderList(<TenderListPage status="open" showHeader />);
+  describe('page title (Open Tenders page)', () => {
+    it('renders the page title and description for the open tenders page', async () => {
+      renderList(<TenderListPage status="open" />);
       expect(await screen.findByRole('heading', { name: 'Open Tenders' })).toBeInTheDocument();
       expect(screen.getByText(/browse and filter/i)).toBeInTheDocument();
     });
 
-    it('shows 4 stat cards with counts from the tenders and dashboard endpoints', async () => {
-      server.use(http.get('/api/tenders', ({ request }) => {
-        const url = new URL(request.url);
-        const closingFrom = url.searchParams.get('closingFrom');
-        const closingTo = url.searchParams.get('closingTo');
-        if (closingFrom && closingFrom === closingTo) {
-          return HttpResponse.json({ items: [], total: 3, page: 1, pageSize: 1 });
-        }
-        if (closingFrom) {
-          return HttpResponse.json({ items: [], total: 12, page: 1, pageSize: 1 });
-        }
-        return HttpResponse.json({ ...defaultPage, total: 128 });
-      }));
-      renderList(<TenderListPage status="open" showHeader />);
-      expect(await screen.findAllByText('Open Tenders')).toHaveLength(2);
-      expect(await screen.findByText('128')).toBeInTheDocument();
-      expect(await screen.findByText('Closing Today')).toBeInTheDocument();
-      expect(await screen.findByText('3')).toBeInTheDocument();
-      expect(await screen.findByText('Closing This Week')).toBeInTheDocument();
-      expect(await screen.findByText('12')).toBeInTheDocument();
-      expect(await screen.findByText('Awarded')).toBeInTheDocument();
-      expect(await screen.findByText('42')).toBeInTheDocument();
-    });
-
-    it('does not render the header or stat cards when showHeader is not set', async () => {
+    it('does not render the page title on the closed/awarded tenders page', async () => {
       renderList(<TenderListPage status="closed" hasWinners />);
       await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
       expect(screen.queryByRole('heading', { name: 'Open Tenders' })).not.toBeInTheDocument();
-      expect(screen.queryByText('Closing Today')).not.toBeInTheDocument();
     });
   });
 });

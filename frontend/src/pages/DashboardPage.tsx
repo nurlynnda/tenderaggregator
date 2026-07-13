@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { fetchDashboard } from '../api/client';
-import { formatMYR } from '../lib/format';
+import { fetchDashboard, fetchTenders } from '../api/client';
+import StatCard from '../components/StatCard';
+import { addDaysISO, todayISO } from '../lib/dateRange';
+import { formatCount, formatMYR } from '../lib/format';
 
 function barPct(value: number, max: number): number {
   return max > 0 ? (value / max) * 100 : 0;
@@ -9,6 +11,22 @@ function barPct(value: number, max: number): number {
 
 export default function DashboardPage() {
   const { data } = useQuery({ queryKey: ['dashboard'], queryFn: fetchDashboard });
+
+  const today = todayISO();
+  const weekEnd = addDaysISO(today, 7);
+  const { data: openCount } = useQuery({
+    queryKey: ['tenders-count', 'open'],
+    queryFn: () => fetchTenders({ status: 'open', pageSize: '1' }),
+  });
+  const { data: closingTodayCount } = useQuery({
+    queryKey: ['tenders-count', 'closingToday', today],
+    queryFn: () => fetchTenders({ status: 'open', closingFrom: today, closingTo: today, pageSize: '1' }),
+  });
+  const { data: closingWeekCount } = useQuery({
+    queryKey: ['tenders-count', 'closingWeek', today, weekEnd],
+    queryFn: () => fetchTenders({ status: 'open', closingFrom: today, closingTo: weekEnd, pageSize: '1' }),
+  });
+
   if (!data) return null;
 
   const maxMinistryValue = Math.max(0, ...data.byMinistry.map((m) => m.totalValue));
@@ -19,15 +37,12 @@ export default function DashboardPage() {
     <div className="max-w-4xl space-y-6">
       <h1 className="font-semibold text-lg">Dashboard</h1>
 
-      <section className="flex gap-6">
-        <div className="border border-[#e0e0e0] rounded-lg p-4 flex-1">
-          <div className="text-xs text-gray-500">Total Awarded Value</div>
-          <div className="text-lg font-semibold">{formatMYR(data.totalAwardedValue)}</div>
-        </div>
-        <div className="border border-[#e0e0e0] rounded-lg p-4 flex-1">
-          <div className="text-xs text-gray-500">Total Awarded Tenders</div>
-          <div className="text-lg font-semibold">{data.totalAwardedCount}</div>
-        </div>
+      <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+        <StatCard label="Open Tenders" value={openCount ? formatCount(openCount.total) : '—'} />
+        <StatCard label="Closing Today" value={closingTodayCount ? formatCount(closingTodayCount.total) : '—'} />
+        <StatCard label="Closing This Week" value={closingWeekCount ? formatCount(closingWeekCount.total) : '—'} />
+        <StatCard label="Awarded" value={formatCount(data.totalAwardedCount)} />
+        <StatCard label="Total Awarded Value" value={formatMYR(data.totalAwardedValue)} />
       </section>
       {data.excludedFromValueCount > 0 && (
         <div className="text-xs text-gray-500">

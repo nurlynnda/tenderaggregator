@@ -2,13 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Tender } from '../api/types';
-import { fetchDashboard, fetchFacets, fetchTenders } from '../api/client';
+import { fetchFacets, fetchTenders } from '../api/client';
 import Badge from '../components/Badge';
 import DaysLeftBadge from '../components/DaysLeftBadge';
 import FieldCodeFilter from '../components/FieldCodeFilter';
-import StatCard from '../components/StatCard';
 import { formatDate } from '../lib/format';
-import { addDaysISO, todayISO } from '../lib/dateRange';
 
 type SortBy = 'advertisedDate' | 'closingDate' | 'indicativePrice';
 
@@ -35,10 +33,9 @@ function formatPricesWon(winners: Tender['winners']): string {
 interface Props {
   status: 'open' | 'closed';
   hasWinners?: boolean;
-  showHeader?: boolean;
 }
 
-export default function TenderListPage({ status, hasWinners = false, showHeader = false }: Props) {
+export default function TenderListPage({ status, hasWinners = false }: Props) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get('search') ?? '');
@@ -103,29 +100,6 @@ export default function TenderListPage({ status, hasWinners = false, showHeader 
   });
   const { data: facets } = useQuery({ queryKey: ['facets'], queryFn: fetchFacets });
 
-  const today = todayISO();
-  const weekEnd = addDaysISO(today, 7);
-  const { data: openCount } = useQuery({
-    queryKey: ['tenders-count', 'open'],
-    queryFn: () => fetchTenders({ status: 'open', pageSize: '1' }),
-    enabled: showHeader,
-  });
-  const { data: closingTodayCount } = useQuery({
-    queryKey: ['tenders-count', 'closingToday', today],
-    queryFn: () => fetchTenders({ status: 'open', closingFrom: today, closingTo: today, pageSize: '1' }),
-    enabled: showHeader,
-  });
-  const { data: closingWeekCount } = useQuery({
-    queryKey: ['tenders-count', 'closingWeek', today, weekEnd],
-    queryFn: () => fetchTenders({ status: 'open', closingFrom: today, closingTo: weekEnd, pageSize: '1' }),
-    enabled: showHeader,
-  });
-  const { data: dashboardStats } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: fetchDashboard,
-    enabled: showHeader,
-  });
-
   const toggleSort = (col: SortBy) => {
     if (sortBy === col) setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
     else { setSortBy(col); setSortOrder('desc'); }
@@ -136,21 +110,13 @@ export default function TenderListPage({ status, hasWinners = false, showHeader 
 
   return (
     <div className="space-y-4">
-      {showHeader && (
-        <>
-          <div>
-            <h1 className="text-lg font-semibold">Open Tenders</h1>
-            <p className="text-xs text-gray-500 mt-1">
-              Browse and filter tenders that are currently open for bidding.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="Open Tenders" value={openCount?.total ?? '—'} />
-            <StatCard label="Closing Today" value={closingTodayCount?.total ?? '—'} />
-            <StatCard label="Closing This Week" value={closingWeekCount?.total ?? '—'} />
-            <StatCard label="Awarded" value={dashboardStats?.totalAwardedCount ?? '—'} />
-          </div>
-        </>
+      {status === 'open' && (
+        <div>
+          <h1 className="text-lg font-semibold">Open Tenders</h1>
+          <p className="text-xs text-gray-500 mt-1">
+            Browse and filter tenders that are currently open for bidding.
+          </p>
+        </div>
       )}
       <div data-testid="filter-card" className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4">
         <div className="flex flex-wrap gap-3 items-end">

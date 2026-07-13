@@ -24,6 +24,41 @@ describe('DashboardPage', () => {
     expect(screen.getByText('42')).toBeInTheDocument();
   });
 
+  it('shows the open-tenders stat cards before the existing dashboard cards, with comma-formatted counts', async () => {
+    server.use(http.get('/api/tenders', ({ request }) => {
+      const url = new URL(request.url);
+      const closingFrom = url.searchParams.get('closingFrom');
+      const closingTo = url.searchParams.get('closingTo');
+      if (closingFrom && closingFrom === closingTo) {
+        return HttpResponse.json({ items: [], total: 3, page: 1, pageSize: 1 });
+      }
+      if (closingFrom) {
+        return HttpResponse.json({ items: [], total: 913, page: 1, pageSize: 1 });
+      }
+      return HttpResponse.json({ items: [], total: 1483, page: 1, pageSize: 1 });
+    }));
+    server.use(http.get('/api/dashboard', () =>
+      HttpResponse.json({ ...defaultDashboardStats, totalAwardedCount: 139389 })));
+
+    renderDashboard();
+
+    expect(await screen.findByText('Open Tenders')).toBeInTheDocument();
+    expect(await screen.findByText('1,483')).toBeInTheDocument();
+    expect(await screen.findByText('Closing Today')).toBeInTheDocument();
+    expect(await screen.findByText('3')).toBeInTheDocument();
+    expect(await screen.findByText('Closing This Week')).toBeInTheDocument();
+    expect(await screen.findByText('913')).toBeInTheDocument();
+    expect(await screen.findByText('Awarded')).toBeInTheDocument();
+    expect(await screen.findByText('139,389')).toBeInTheDocument();
+
+    const labels = ['Open Tenders', 'Closing Today', 'Closing This Week', 'Awarded', 'Total Awarded Value'];
+    const positions = labels.map((label) => {
+      const el = screen.getByText(label);
+      return Array.from(document.body.querySelectorAll('*')).indexOf(el);
+    });
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+  });
+
   it('shows the excludes-N caption when excludedFromValueCount is greater than 0', async () => {
     renderDashboard();
     expect(await screen.findByText(/excludes 3 awards/i)).toBeInTheDocument();
