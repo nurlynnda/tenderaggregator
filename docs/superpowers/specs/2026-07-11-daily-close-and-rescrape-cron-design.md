@@ -15,8 +15,9 @@ tenders should be picked up the same day. Today this only happens:
 
 None of this is pinned to a clock time. This spec replaces the 6-hour sweep with a
 scheduler that fires at exactly **12:01pm Malaysia time (UTC+8, no DST)** every day,
-closes any tenders whose closing date is today, and then scrapes open tenders across
-all data sources.
+closes any tenders whose closing date is today, and then rescrapes open tenders on
+MyProcurement (the only source scraped automatically — SPAN and KWSP are excluded
+from this daily trigger and remain manual-only via the existing "Rescrape" button).
 
 ## Behavior
 
@@ -26,8 +27,8 @@ At 12:01pm MYT daily:
    runs immediately, independent of scrape state.
 2. Wait for any in-progress scrape to finish (if one is running — e.g. a user
    clicked "Rescrape" manually right before noon).
-3. Start an `open`-scope scrape across all adapters (equivalent to clicking
-   "Rescrape" for every source).
+3. Start an `open`-scope scrape scoped to the `myprocurement` source only
+   (equivalent to clicking "Rescrape" for just that one source).
 
 If the server is down at 12:01pm on a given day, it catches up automatically on
 next startup: if today's run hasn't happened yet and it's already past 12:01pm MYT,
@@ -75,14 +76,15 @@ three-line helper).
 
 Remove the `STALE_SWEEP_INTERVAL_HOURS` / `setInterval` block entirely. Construct
 `DailyScheduler` with `repo.reconcileStaleOpen`/`repo.flush`, `manager.waitUntilIdle`/
-`manager.start('open')`, and the state file path under `DATA_DIR`; call `.start()`.
+`manager.start('open', { sourceName: 'myprocurement' })`, and the state file path
+under `DATA_DIR`; call `.start()`.
 
 ## Error handling
 
 - `run()` errors (reconcile failure, scrape failure) are caught and logged with a
   `[daily]` prefix; they never crash the process or prevent tomorrow's trigger
   (already scheduled independently — see above).
-- `manager.start('open')` racing with a concurrent manual start after
+- `manager.start('open', { sourceName: 'myprocurement' })` racing with a concurrent manual start after
   `waitUntilIdle()` resolves is a rare, harmless case: `start()` simply returns
   `false`, which is logged (`[daily] scrape already in progress after waiting —
   skipping today's auto-scrape`) rather than retried indefinitely.
