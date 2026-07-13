@@ -28,4 +28,17 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Dashboard' }));
     expect(await screen.findByText('Spend by Ministry')).toBeInTheDocument();
   });
+
+  it('renders an icon next to each nav link', () => {
+    render(<App />);
+    for (const name of ['Dashboard', 'Open Tenders', 'Closed Tenders', 'Awarded Tenders', 'Settings']) {
+      const link = screen.getByRole('link', { name });
+      expect(link.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
+    }
+  });
+
+  it('gives the main content area a light gray background', () => {
+    render(<App />);
+    expect(screen.getByRole('main')).toHaveClass('bg-[#F8FAFC]');
+  });
 });
