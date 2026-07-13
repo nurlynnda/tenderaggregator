@@ -21,10 +21,10 @@ export default function ContractorDetailPage() {
       </button>
       <h1 className="font-semibold text-lg">Top Contractors — All {data.allContractors.length} Contractors</h1>
       <div className="space-y-2">
-        {data.allContractors.map((c) => (
+        {data.allContractors.map((c, i) => (
           <div key={c.name}>
             <div className="flex justify-between text-xs mb-1">
-              <span>{c.name}</span>
+              <span>{i + 1}. {c.name}</span>
               <span>{c.wins} wins · {formatMYR(c.totalValue)}</span>
             </div>
             <div className="h-2 bg-gray-100 rounded">

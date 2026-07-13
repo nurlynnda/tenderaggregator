@@ -44,8 +44,14 @@ describe('DashboardPage', () => {
 
   it('lists top contractors with wins and value', async () => {
     renderDashboard();
-    expect(await screen.findByText('ACME SDN BHD')).toBeInTheDocument();
+    expect(await screen.findByText(/ACME SDN BHD/)).toBeInTheDocument();
     expect(screen.getByText(/5 wins/)).toBeInTheDocument();
+  });
+
+  it('numbers each contractor by rank', async () => {
+    renderDashboard();
+    expect(await screen.findByText(/^1\.\s*ACME SDN BHD$/)).toBeInTheDocument();
+    expect(screen.getByText(/^2\.\s*BETA ENGINEERING$/)).toBeInTheDocument();
   });
 
   it('shows awarded value by year in the order the API returned (ascending)', async () => {
@@ -64,7 +70,7 @@ describe('DashboardPage', () => {
 
   it('links "See more" on Top Contractors to /dashboard/contractors', async () => {
     renderDashboard();
-    await screen.findByText('ACME SDN BHD');
+    await screen.findByText(/ACME SDN BHD/);
     const links = screen.getAllByRole('link', { name: /see more/i });
     const contractorLink = links.find((l) => l.getAttribute('href') === '/dashboard/contractors');
     expect(contractorLink).toBeDefined();

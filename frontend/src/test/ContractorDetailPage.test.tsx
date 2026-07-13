@@ -29,16 +29,23 @@ function renderPage() {
 describe('ContractorDetailPage', () => {
   it('lists every contractor, including ones beyond the dashboard top 10, with wins and value', async () => {
     renderPage();
-    expect(await screen.findByText('ACME SDN BHD')).toBeInTheDocument();
-    expect(screen.getByText('BETA ENGINEERING')).toBeInTheDocument();
-    expect(screen.getByText('GAMMA WORKS')).toBeInTheDocument();
+    expect(await screen.findByText(/ACME SDN BHD/)).toBeInTheDocument();
+    expect(screen.getByText(/BETA ENGINEERING/)).toBeInTheDocument();
+    expect(screen.getByText(/GAMMA WORKS/)).toBeInTheDocument();
     expect(screen.getByText(/5 wins · RM 700,000\.00/)).toBeInTheDocument();
     expect(screen.getByText(/1 wins · RM 50,000\.00/)).toBeInTheDocument();
   });
 
+  it('numbers each contractor by rank, including ones beyond the dashboard top 10', async () => {
+    renderPage();
+    expect(await screen.findByText(/^1\.\s*ACME SDN BHD$/)).toBeInTheDocument();
+    expect(screen.getByText(/^2\.\s*BETA ENGINEERING$/)).toBeInTheDocument();
+    expect(screen.getByText(/^3\.\s*GAMMA WORKS$/)).toBeInTheDocument();
+  });
+
   it('navigates back when the back link is clicked', async () => {
     renderPage();
-    await screen.findByText('ACME SDN BHD');
+    await screen.findByText(/ACME SDN BHD/);
     await userEvent.click(screen.getByRole('button', { name: /back to dashboard/i }));
     expect(await screen.findByText('GO TO CONTRACTORS')).toBeInTheDocument();
   });
