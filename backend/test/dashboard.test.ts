@@ -81,27 +81,27 @@ describe('buildDashboardStats', () => {
     expect(stats.allMinistries[11]).toEqual({ ministry: 'MINISTRY 0', totalValue: 1000, count: 1 });
   });
 
-  it('truncates to the top 10 contractors by win count, descending, ties broken by value', () => {
+  it('truncates to the top 10 contractors by total value won, descending, ties broken by win count', () => {
     const many = Array.from({ length: 9 }, (_, i) => makeTender({
       winners: [{ name: `SMALL ${i}`, price: 1 }],
     }));
-    const bigWinner = Array.from({ length: 3 }, () => makeTender({
-      winners: [{ name: 'BIG WINNER', price: 500 }],
+    const bigEarner = makeTender({ winners: [{ name: 'BIG EARNER', price: 500 }] });
+    const tieManyWins = Array.from({ length: 2 }, () => makeTender({
+      winners: [{ name: 'TIE MANY WINS', price: 10 }],
     }));
-    const tieA = makeTender({ winners: [{ name: 'TIE A', price: 50 }] });
-    const tieB = makeTender({ winners: [{ name: 'TIE B', price: 20 }] });
-    const stats = buildDashboardStats([...many, ...bigWinner, tieA, tieB]);
+    const tieFewWins = makeTender({ winners: [{ name: 'TIE FEW WINS', price: 20 }] });
+    const stats = buildDashboardStats([...many, bigEarner, ...tieManyWins, tieFewWins]);
     expect(stats.topContractors).toHaveLength(10);
-    expect(stats.topContractors[0]).toEqual({ name: 'BIG WINNER', wins: 3, totalValue: 1500 });
-    // TIE A and TIE B both have 1 win; TIE A's higher value must sort first
-    const tieIndexA = stats.topContractors.findIndex((c) => c.name === 'TIE A');
-    const tieIndexB = stats.topContractors.findIndex((c) => c.name === 'TIE B');
-    expect(tieIndexA).toBeLessThan(tieIndexB);
+    expect(stats.topContractors[0]).toEqual({ name: 'BIG EARNER', wins: 1, totalValue: 500 });
+    // TIE MANY WINS and TIE FEW WINS both have totalValue 20; more wins must sort first
+    const tieIndexMany = stats.topContractors.findIndex((c) => c.name === 'TIE MANY WINS');
+    const tieIndexFew = stats.topContractors.findIndex((c) => c.name === 'TIE FEW WINS');
+    expect(tieIndexMany).toBeLessThan(tieIndexFew);
     expect(stats.allContractors).toHaveLength(12);
-    expect(stats.allContractors[0]).toEqual({ name: 'BIG WINNER', wins: 3, totalValue: 1500 });
-    const allTieIndexA = stats.allContractors.findIndex((c) => c.name === 'TIE A');
-    const allTieIndexB = stats.allContractors.findIndex((c) => c.name === 'TIE B');
-    expect(allTieIndexA).toBeLessThan(allTieIndexB);
+    expect(stats.allContractors[0]).toEqual({ name: 'BIG EARNER', wins: 1, totalValue: 500 });
+    const allTieIndexMany = stats.allContractors.findIndex((c) => c.name === 'TIE MANY WINS');
+    const allTieIndexFew = stats.allContractors.findIndex((c) => c.name === 'TIE FEW WINS');
+    expect(allTieIndexMany).toBeLessThan(allTieIndexFew);
   });
 
   it('does not count a closed tender with no winners as awarded', () => {

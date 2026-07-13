@@ -74,7 +74,7 @@ export function buildDashboardStats(tenders: Tender[]): DashboardStats {
 
   const allMinistries = [...ministryMap.values()].sort((a, b) => b.totalValue - a.totalValue);
   const allContractors = [...contractorMap.values()]
-    .sort((a, b) => (b.wins - a.wins) || (b.totalValue - a.totalValue));
+    .sort((a, b) => (b.totalValue - a.totalValue) || (b.wins - a.wins));
   const byMinistry = allMinistries.slice(0, 10);
   const topContractors = allContractors.slice(0, 10);
   const byYear = [...yearMap.values()].sort((a, b) => a.year - b.year);
