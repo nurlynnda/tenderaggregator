@@ -43,6 +43,14 @@ describe('ContractorDetailPage', () => {
     expect(screen.getByText(/^3\.\s*GAMMA WORKS$/)).toBeInTheDocument();
   });
 
+  it('sizes each contractor bar by total value won, not win count', async () => {
+    renderPage();
+    const gammaRow = (await screen.findByText(/^3\.\s*GAMMA WORKS$/)).closest('div')!.parentElement!;
+    const bar = gammaRow.querySelector('.bg-blue-800') as HTMLElement;
+    // GAMMA: totalValue 50000 / ACME's max totalValue 700000 = ~7.14%, not the wins-based 1/5 = 20%
+    expect(parseFloat(bar.style.width)).toBeCloseTo((50000 / 700000) * 100, 5);
+  });
+
   it('navigates back when the back link is clicked', async () => {
     renderPage();
     await screen.findByText(/ACME SDN BHD/);

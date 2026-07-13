@@ -54,6 +54,14 @@ describe('DashboardPage', () => {
     expect(screen.getByText(/^2\.\s*BETA ENGINEERING$/)).toBeInTheDocument();
   });
 
+  it('sizes the contractor bar by total value won, not win count', async () => {
+    renderDashboard();
+    const betaRow = (await screen.findByText(/^2\.\s*BETA ENGINEERING$/)).closest('div')!.parentElement!;
+    const bar = betaRow.querySelector('.bg-blue-800') as HTMLElement;
+    // BETA: totalValue 300000 / ACME's max totalValue 700000 = ~42.86%, not the wins-based 2/5 = 40%
+    expect(parseFloat(bar.style.width)).toBeCloseTo((300000 / 700000) * 100, 5);
+  });
+
   it('shows awarded value by year in the order the API returned (ascending)', async () => {
     renderDashboard();
     const years = await screen.findAllByText(/^20\d{2}$/);

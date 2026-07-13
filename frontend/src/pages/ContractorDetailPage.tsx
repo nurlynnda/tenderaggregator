@@ -12,7 +12,7 @@ export default function ContractorDetailPage() {
   const { data } = useQuery({ queryKey: ['dashboard'], queryFn: fetchDashboard });
   if (!data) return null;
 
-  const maxWins = Math.max(0, ...data.allContractors.map((c) => c.wins));
+  const maxValue = Math.max(0, ...data.allContractors.map((c) => c.totalValue));
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -28,7 +28,7 @@ export default function ContractorDetailPage() {
               <span>{c.wins} wins · {formatMYR(c.totalValue)}</span>
             </div>
             <div className="h-2 bg-gray-100 rounded">
-              <div className="h-2 bg-blue-800 rounded" style={{ width: `${barPct(c.wins, maxWins)}%` }} />
+              <div className="h-2 bg-blue-800 rounded" style={{ width: `${barPct(c.totalValue, maxValue)}%` }} />
             </div>
           </div>
         ))}

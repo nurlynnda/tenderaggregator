@@ -50,6 +50,22 @@ describe('buildDashboardStats', () => {
     expect(beta).toEqual({ name: 'BETA ENGINEERING', wins: 1, totalValue: 0 });
   });
 
+  it('merges contractor winners whose names differ only by case, whitespace, or a trailing period', () => {
+    const stats = buildDashboardStats([
+      makeTender({ winners: [{ name: 'AIM CONCEPT SDN. BHD.', price: 428000000 }] }),
+      makeTender({ winners: [{ name: 'AIM CONCEPT SDN. BHD.', price: 579777774.61 }] }),
+      makeTender({ winners: [{ name: 'AIM CONCEPT SDN. BHD', price: 383040113.49 }] }),
+      makeTender({ winners: [{ name: '  aim concept sdn. bhd.  ', price: 1 }] }),
+    ]);
+    const matches = stats.allContractors.filter((c) => c.name.toUpperCase().includes('AIM CONCEPT'));
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toEqual({
+      name: 'AIM CONCEPT SDN. BHD',
+      wins: 4,
+      totalValue: 428000000 + 579777774.61 + 383040113.49 + 1,
+    });
+  });
+
   it('groups a null ministry under "Unknown"', () => {
     const stats = buildDashboardStats([makeTender({ ministry: null })]);
     expect(stats.byMinistry).toEqual([{ ministry: 'Unknown', totalValue: 100, count: 1 }]);

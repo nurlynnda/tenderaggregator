@@ -12,7 +12,7 @@ export default function DashboardPage() {
   if (!data) return null;
 
   const maxMinistryValue = Math.max(0, ...data.byMinistry.map((m) => m.totalValue));
-  const maxContractorWins = Math.max(0, ...data.topContractors.map((c) => c.wins));
+  const maxContractorValue = Math.max(0, ...data.topContractors.map((c) => c.totalValue));
   const maxYearValue = Math.max(0, ...data.byYear.map((y) => y.totalValue));
 
   return (
@@ -68,7 +68,7 @@ export default function DashboardPage() {
                 <span>{c.wins} wins · {formatMYR(c.totalValue)}</span>
               </div>
               <div className="h-2 bg-gray-100 rounded">
-                <div className="h-2 bg-blue-800 rounded" style={{ width: `${barPct(c.wins, maxContractorWins)}%` }} />
+                <div className="h-2 bg-blue-800 rounded" style={{ width: `${barPct(c.totalValue, maxContractorValue)}%` }} />
               </div>
             </div>
           ))}

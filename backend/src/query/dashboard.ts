@@ -32,6 +32,14 @@ function isAwarded(t: Tender): boolean {
   return t.status === 'closed' && t.winners !== null && t.winners.length > 0;
 }
 
+// Scraped winner names sometimes vary by case, whitespace, or a trailing period
+// for the same real-world contractor (e.g. "AIM CONCEPT SDN. BHD." vs
+// "AIM CONCEPT SDN. BHD"). Normalize before grouping so these aren't split
+// into separate dashboard entries.
+function normalizeContractorName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toUpperCase().replace(/\.+$/, '');
+}
+
 export function buildDashboardStats(tenders: Tender[]): DashboardStats {
   const awarded = tenders.filter(isAwarded);
 
@@ -56,9 +64,10 @@ export function buildDashboardStats(tenders: Tender[]): DashboardStats {
     }
 
     for (const winner of t.winners ?? []) {
-      const contractorStat = contractorMap.get(winner.name) ?? { name: winner.name, wins: 0, totalValue: 0 };
+      const contractorKey = normalizeContractorName(winner.name);
+      const contractorStat = contractorMap.get(contractorKey) ?? { name: contractorKey, wins: 0, totalValue: 0 };
       contractorStat.wins += 1;
-      contractorMap.set(winner.name, contractorStat);
+      contractorMap.set(contractorKey, contractorStat);
 
       if (winner.price === null) {
         excludedFromValueCount += 1;
