@@ -57,6 +57,12 @@ describe('TenderListPage', () => {
     expect(within(row).getByTestId('days-left')).toHaveTextContent(/d left|today|overdue/i);
   });
 
+  it('does not show a days-left indicator on closed or awarded tenders', async () => {
+    renderList(<TenderListPage status="closed" />);
+    const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
+    expect(within(row).queryByTestId('days-left')).not.toBeInTheDocument();
+  });
+
   it('wraps the search and filter controls in one card container', async () => {
     renderList(<TenderListPage status="open" />);
     await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
