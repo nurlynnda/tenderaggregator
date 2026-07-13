@@ -217,6 +217,29 @@ describe('ScrapeManager', () => {
     expect(mgr.cancel()).toBe(false);
   });
 
+  it('waitUntilIdle resolves immediately when idle', async () => {
+    const repo = await freshRepo();
+    const mgr = new ScrapeManager([], repo, { now: NOW });
+    await expect(mgr.waitUntilIdle()).resolves.toBeUndefined();
+  });
+
+  it('waitUntilIdle resolves only after an in-flight run completes', async () => {
+    const repo = await freshRepo();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const adapter = fakeAdapter(async () => gate);
+    const mgr = new ScrapeManager([adapter], repo, { now: NOW });
+    mgr.start('open');
+    let resolved = false;
+    const waiter = mgr.waitUntilIdle().then(() => { resolved = true; });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(resolved).toBe(false);
+    release();
+    await waiter;
+    expect(resolved).toBe(true);
+    expect(mgr.status().state).toBe('done');
+  });
+
   it('reconciles stale open tenders after the run completes, flushing an extra time only when something changed', async () => {
     const repo = await freshRepo();
     const originalFlush = repo.flush.bind(repo);

@@ -16,6 +16,7 @@ export class ScrapeManager {
   private current: ScrapeStatus = { state: 'idle' };
   private running = false;
   private cancelRequested = false;
+  private idleWaiters: Array<() => void> = [];
 
   constructor(
     private readonly adapters: ScraperAdapter[],
@@ -38,6 +39,13 @@ export class ScrapeManager {
     if (!this.running) return false;
     this.cancelRequested = true;
     return true;
+  }
+
+  async waitUntilIdle(): Promise<void> {
+    if (!this.running) return;
+    await new Promise<void>((resolve) => {
+      this.idleWaiters.push(resolve);
+    });
   }
 
   listSources(): Array<{ name: string; lastScrapedAt: string | null; lastArchiveBackfillAt: string | null; total: number }> {
@@ -116,6 +124,9 @@ export class ScrapeManager {
       this.current = { state: 'failed', source: activeSource, error: err instanceof Error ? err.message : String(err) };
     } finally {
       this.running = false;
+      const waiters = this.idleWaiters;
+      this.idleWaiters = [];
+      for (const resolve of waiters) resolve();
     }
   }
 }
