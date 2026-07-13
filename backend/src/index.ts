@@ -9,6 +9,8 @@ import { ScrapeManager } from './scrape/manager.js';
 import { createApp } from './api/app.js';
 import { decideStartupPolicy } from './startupPolicy.js';
 import { resolveDataDir } from './resolveDataDir.js';
+import { DailyScheduler } from './scheduler/DailyScheduler.js';
+import { createDailyRunStateStore } from './scheduler/dailyRunState.js';
 
 const PORT = Number(process.env.PORT) || 3001;
 const DATA_DIR = resolveDataDir(import.meta.url, process.env.DATA_DIR);
@@ -19,7 +21,7 @@ async function main() {
 
   // Self-heals tenders left stuck as "open" past their deadline (see
   // docs/superpowers/specs/2026-07-10-stale-open-status-reconciliation-design.md) — fixes
-  // whatever accumulated since this last ran; the recurring sweep below (see end of main())
+  // whatever accumulated since this last ran; the daily scheduler below (see end of main())
   // keeps catching up even if nobody restarts the server or triggers a rescrape.
   const startupStaleCount = repo.reconcileStaleOpen();
   if (startupStaleCount > 0) {
@@ -63,26 +65,23 @@ async function main() {
     })();
   }
 
-  const rawSweepIntervalHours = Number(process.env.STALE_SWEEP_INTERVAL_HOURS);
-  const sweepIntervalHours = rawSweepIntervalHours > 0 ? rawSweepIntervalHours : 6;
-  // Node's setInterval uses a 32-bit signed int for the delay; anything larger fires almost
-  // immediately instead of "far in the future" — clamp so a misconfigured (or Infinity) env
-  // var can't turn this into a tight loop.
-  const MAX_SETINTERVAL_DELAY_MS = 2 ** 31 - 1;
-  const sweepDelayMs = Math.min(sweepIntervalHours * 60 * 60 * 1000, MAX_SETINTERVAL_DELAY_MS);
-  setInterval(() => {
-    void (async () => {
-      try {
-        const count = repo.reconcileStaleOpen();
-        if (count > 0) {
-          console.log(`[sweep] reconciled ${count} stale open tender(s)`);
-          await repo.flush();
-        }
-      } catch (err) {
-        console.error('[sweep] reconciliation failed:', err);
+  const dailyRunState = createDailyRunStateStore(DATA_DIR);
+  const dailyScheduler = new DailyScheduler({
+    run: async () => {
+      const staleCount = repo.reconcileStaleOpen();
+      if (staleCount > 0) {
+        console.log(`[daily] reconciled ${staleCount} stale open tender(s)`);
+        await repo.flush();
       }
-    })();
-  }, sweepDelayMs).unref();
+      await manager.waitUntilIdle();
+      if (!manager.start('open', { sourceName: 'myprocurement' })) {
+        console.log("[daily] scrape already in progress after waiting — skipping today's auto-scrape");
+      }
+    },
+    loadLastRunDate: () => dailyRunState.load(),
+    saveLastRunDate: (date) => dailyRunState.save(date),
+  });
+  await dailyScheduler.start();
 
   createApp({ repo, manager }).listen(PORT, () => {
     console.log(`backend listening on :${PORT}`);
