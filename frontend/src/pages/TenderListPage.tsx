@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Tender } from '../api/types';
 import { fetchFacets, fetchTenders } from '../api/client';
+import Badge from '../components/Badge';
+import DaysLeftBadge from '../components/DaysLeftBadge';
 import FieldCodeFilter from '../components/FieldCodeFilter';
 import { formatDate } from '../lib/format';
 
@@ -56,6 +58,7 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
     (searchParams.get('sortOrder') as 'asc' | 'desc') ?? 'desc',
   );
   const [page, setPage] = useState(Number(searchParams.get('page') ?? '1'));
+  const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const h = setTimeout(() => { setSearch(searchInput); setPage(1); }, 300);
@@ -106,110 +109,162 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
   const sortIndicator = (col: SortBy) => (sortBy === col ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : '');
   const totalPages = pageData ? Math.max(1, Math.ceil(pageData.total / pageData.pageSize)) : 1;
 
+  function toggleSave(key: string) {
+    setSavedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  function shareLink(referenceNo: string) {
+    navigator.clipboard.writeText(`${window.location.origin}/tenders/${encodeURIComponent(referenceNo)}`);
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-3 items-end">
-        <input
-          type="search"
-          placeholder="Search title or reference no…"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="border border-[#e0e0e0] rounded-md px-3 py-2 w-72 text-[10px]"
-        />
-        {hasWinners && (
+      <div data-testid="filter-card" className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4">
+        <div className="flex flex-wrap gap-3 items-end">
+          <input
+            type="search"
+            placeholder="Search title or reference no…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="border border-[#e0e0e0] rounded-md px-3 py-2 w-72 text-[10px]"
+          />
+          {hasWinners && (
+            <label className="flex flex-col text-[10px] gap-1">
+              Contractor
+              <input
+                type="text"
+                placeholder="Search contractor…"
+                className="border border-[#e0e0e0] rounded-md px-2 py-2 w-40 text-[10px]"
+                value={contractorInput}
+                onChange={(e) => setContractorInput(e.target.value)}
+              />
+            </label>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-3 items-end">
+          {FILTERS.map((f) => (
+            <label key={f.key} className="flex flex-col text-[10px] gap-1">
+              {f.label}
+              <select
+                className="border border-[#e0e0e0] rounded-md px-2 py-2 w-40 truncate text-[10px]"
+                title={filters[f.key] || undefined}
+                value={filters[f.key] ?? ''}
+                onChange={(e) => {
+                  setFilters((prev) => ({ ...prev, [f.key]: e.target.value }));
+                  setPage(1);
+                }}
+              >
+                <option value="">All</option>
+                {(facets?.[f.facet] ?? []).map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </label>
+          ))}
+          <FieldCodeFilter value={fieldCode} onChange={(c) => { setFieldCode(c); setPage(1); }} />
           <label className="flex flex-col text-[10px] gap-1">
-            Contractor
+            Closing from
             <input
-              type="text"
-              placeholder="Search contractor…"
-              className="border border-[#e0e0e0] rounded-md px-2 py-2 w-40 text-[10px]"
-              value={contractorInput}
-              onChange={(e) => setContractorInput(e.target.value)}
+              type="date"
+              className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
+              value={closingFrom}
+              onChange={(e) => { setClosingFrom(e.target.value); setPage(1); }}
             />
           </label>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-3 items-end">
-        {FILTERS.map((f) => (
-          <label key={f.key} className="flex flex-col text-[10px] gap-1">
-            {f.label}
-            <select
-              className="border border-[#e0e0e0] rounded-md px-2 py-2 w-40 truncate text-[10px]"
-              title={filters[f.key] || undefined}
-              value={filters[f.key] ?? ''}
-              onChange={(e) => {
-                setFilters((prev) => ({ ...prev, [f.key]: e.target.value }));
-                setPage(1);
-              }}
-            >
-              <option value="">All</option>
-              {(facets?.[f.facet] ?? []).map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
+          <label className="flex flex-col text-[10px] gap-1">
+            Closing to
+            <input
+              type="date"
+              className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
+              value={closingTo}
+              onChange={(e) => { setClosingTo(e.target.value); setPage(1); }}
+            />
           </label>
-        ))}
-        <FieldCodeFilter value={fieldCode} onChange={(c) => { setFieldCode(c); setPage(1); }} />
-        <label className="flex flex-col text-[10px] gap-1">
-          Closing from
-          <input
-            type="date"
-            className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
-            value={closingFrom}
-            onChange={(e) => { setClosingFrom(e.target.value); setPage(1); }}
-          />
-        </label>
-        <label className="flex flex-col text-[10px] gap-1">
-          Closing to
-          <input
-            type="date"
-            className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
-            value={closingTo}
-            onChange={(e) => { setClosingTo(e.target.value); setPage(1); }}
-          />
-        </label>
+        </div>
       </div>
 
-      <div className="overflow-x-auto border border-[#e0e0e0] rounded-lg">
+      <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white shadow-sm">
         <table className="data-table w-full text-[10px]">
-          <thead className="bg-gray-100 text-left">
+          <thead className="bg-gray-100 text-left sticky top-0 z-10">
             <tr>
-              <th className="px-3 py-2 uppercase tracking-wide w-full">Title</th>
-              <th className="px-3 py-2 uppercase tracking-wide">Reference No</th>
-              {!hasWinners && <th className="px-3 py-2 uppercase tracking-wide">Ministry</th>}
-              {!hasWinners && <th className="px-3 py-2 uppercase tracking-wide">Type</th>}
-              <th className="px-3 py-2 uppercase tracking-wide">
+              <th className="px-3 py-3 uppercase tracking-wide w-full">Title</th>
+              <th className="px-3 py-3 uppercase tracking-wide">Reference No</th>
+              {!hasWinners && <th className="px-3 py-3 uppercase tracking-wide">Ministry</th>}
+              {!hasWinners && <th className="px-3 py-3 uppercase tracking-wide">Type</th>}
+              <th className="px-3 py-3 uppercase tracking-wide">
                 <button onClick={() => toggleSort('closingDate')}>Closing Date{sortIndicator('closingDate')}</button>
               </th>
-              <th className="px-3 py-2 uppercase tracking-wide">Field Code</th>
-              <th className="px-3 py-2 uppercase tracking-wide">Source</th>
-              {hasWinners && <th className="px-3 py-2 uppercase tracking-wide">Contractor</th>}
-              {hasWinners && <th className="px-3 py-2 uppercase tracking-wide">Price Won</th>}
+              <th className="px-3 py-3 uppercase tracking-wide">Field Code</th>
+              <th className="px-3 py-3 uppercase tracking-wide">Source</th>
+              {hasWinners && <th className="px-3 py-3 uppercase tracking-wide">Contractor</th>}
+              {hasWinners && <th className="px-3 py-3 uppercase tracking-wide">Price Won</th>}
+              <th className="px-3 py-3 uppercase tracking-wide">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {(pageData?.items ?? []).map((t) => (
+            {(pageData?.items ?? []).map((t, i) => (
               <tr
                 key={t.dedupKey}
                 onClick={() => navigate(`/tenders/${encodeURIComponent(t.referenceNo)}`)}
-                className="cursor-pointer hover:bg-blue-50"
+                className={`cursor-pointer hover:bg-blue-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}
               >
-                <td className="px-3 py-2 font-medium">{t.title}</td>
-                <td className="px-3 py-2">
+                <td className="px-3 py-3 font-medium">{t.title}</td>
+                <td className="px-3 py-3">
                   <div className="w-28 break-all">{t.referenceNo}</div>
                 </td>
-                {!hasWinners && <td className="px-3 py-2">{t.ministry ?? '—'}</td>}
-                {!hasWinners && <td className="px-3 py-2 capitalize">{t.procurementType ?? '—'}</td>}
-                <td className="px-3 py-2 whitespace-nowrap">{formatDate(t.closingDate) ?? '—'}</td>
-                <td className="px-3 py-2 whitespace-nowrap">
+                {!hasWinners && <td className="px-3 py-3">{t.ministry ?? '—'}</td>}
+                {!hasWinners && (
+                  <td className="px-3 py-3">
+                    {t.procurementType === null ? '—' : <Badge label={t.procurementType} />}
+                  </td>
+                )}
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <span>{formatDate(t.closingDate) ?? '—'}</span>
+                    <DaysLeftBadge closingDate={t.closingDate} />
+                  </div>
+                </td>
+                <td className="px-3 py-3 whitespace-nowrap">
                   {t.fieldCodes.length === 0
                     ? '—'
-                    : t.fieldCodes.length === 1
-                      ? t.fieldCodes[0]
-                      : `${t.fieldCodes[0]} +${t.fieldCodes.length - 1}`}
+                    : <Badge label={t.fieldCodes.length === 1 ? t.fieldCodes[0] : `${t.fieldCodes[0]} +${t.fieldCodes.length - 1}`} colorKey={t.fieldCodes[0]} />}
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">{t.sources.map((s) => s.source).join(', ')}</td>
-                {hasWinners && <td className="px-3 py-2">{formatContractors(t.winners)}</td>}
-                {hasWinners && <td className="px-3 py-2 whitespace-nowrap">{formatPricesWon(t.winners)}</td>}
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <div className="flex gap-1">
+                    {t.sources.map((s) => <Badge key={s.source} label={s.source} />)}
+                  </div>
+                </td>
+                {hasWinners && <td className="px-3 py-3">{formatContractors(t.winners)}</td>}
+                {hasWinners && <td className="px-3 py-3 whitespace-nowrap">{formatPricesWon(t.winners)}</td>}
+                <td className="px-3 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-[10px] text-blue-700 underline"
+                      onClick={() => navigate(`/tenders/${encodeURIComponent(t.referenceNo)}`)}
+                    >
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={savedKeys.has(t.dedupKey)}
+                      className={`text-[10px] underline ${savedKeys.has(t.dedupKey) ? 'text-amber-600' : 'text-gray-500'}`}
+                      onClick={() => toggleSave(t.dedupKey)}
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      className="text-[10px] text-gray-500 underline"
+                      onClick={() => shareLink(t.referenceNo)}
+                    >
+                      Share
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>

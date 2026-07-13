@@ -3,7 +3,7 @@ import { render, screen, waitFor, within, fireEvent } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import TenderListPage from '../pages/TenderListPage';
 import { defaultPage, makeTender, server } from './mocks';
 
@@ -45,7 +45,45 @@ describe('TenderListPage', () => {
     expect(within(row).getByText('myprocurement')).toBeInTheDocument();
   });
 
-  it('joins multiple sources with a comma in the Source column', async () => {
+  it('shows the Type value as a colored badge', async () => {
+    renderList(<TenderListPage status="open" />);
+    const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
+    expect(within(row).getByText('quotation')).toHaveClass('bg-blue-100');
+  });
+
+  it('shows a days-left indicator next to the closing date', async () => {
+    renderList(<TenderListPage status="open" />);
+    const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
+    expect(within(row).getByTestId('days-left')).toHaveTextContent(/d left|today|overdue/i);
+  });
+
+  it('wraps the search and filter controls in one card container', async () => {
+    renderList(<TenderListPage status="open" />);
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+    const card = screen.getByTestId('filter-card');
+    expect(card).toContainElement(screen.getByPlaceholderText(/search/i));
+    expect(card).toContainElement(screen.getByLabelText(/ministry/i));
+  });
+
+  it('renders View, Save, and Share action buttons per row without triggering row navigation for Save/Share', async () => {
+    const writeText = vi.fn();
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderList(<TenderListPage status="open" />);
+    const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Save' }));
+    expect(within(row).getByRole('button', { name: 'Save' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByText('DETAIL PAGE')).not.toBeInTheDocument();
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Share' }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/tenders/UTHM%2F54%2FP%2F02%2F023%2F2026'));
+    expect(screen.queryByText('DETAIL PAGE')).not.toBeInTheDocument();
+
+    await userEvent.click(within(row).getByRole('button', { name: 'View' }));
+    expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument();
+  });
+
+  it('joins multiple sources as separate badges in the Source column', async () => {
     server.use(http.get('/api/tenders', () => HttpResponse.json({
       items: [makeTender({
         sources: [
@@ -56,7 +94,9 @@ describe('TenderListPage', () => {
       total: 1, page: 1, pageSize: 20,
     })));
     renderList(<TenderListPage status="open" />);
-    expect(await screen.findByText('myprocurement, span')).toBeInTheDocument();
+    const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
+    expect(within(row).getByText('myprocurement')).toBeInTheDocument();
+    expect(within(row).getByText('span')).toBeInTheDocument();
   });
 
   it('sends status as a fixed param, not a user-facing filter', async () => {
