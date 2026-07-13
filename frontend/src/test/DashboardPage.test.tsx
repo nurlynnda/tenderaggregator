@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import DashboardPage from '../pages/DashboardPage';
 import { defaultDashboardStats, server } from './mocks';
@@ -9,7 +10,9 @@ function renderDashboard() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <DashboardPage />
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -49,5 +52,21 @@ describe('DashboardPage', () => {
     renderDashboard();
     const years = await screen.findAllByText(/^20\d{2}$/);
     expect(years.map((el) => el.textContent)).toEqual(['2024', '2025']);
+  });
+
+  it('links "See more" on Spend by Ministry to /dashboard/ministries', async () => {
+    renderDashboard();
+    await screen.findByText('KEMENTERIAN A');
+    const links = screen.getAllByRole('link', { name: /see more/i });
+    const ministryLink = links.find((l) => l.getAttribute('href') === '/dashboard/ministries');
+    expect(ministryLink).toBeDefined();
+  });
+
+  it('links "See more" on Top Contractors to /dashboard/contractors', async () => {
+    renderDashboard();
+    await screen.findByText('ACME SDN BHD');
+    const links = screen.getAllByRole('link', { name: /see more/i });
+    const contractorLink = links.find((l) => l.getAttribute('href') === '/dashboard/contractors');
+    expect(contractorLink).toBeDefined();
   });
 });

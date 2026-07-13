@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import DetailPage from './pages/DetailPage';
+import MinistryDetailPage from './pages/MinistryDetailPage';
+import ContractorDetailPage from './pages/ContractorDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import TenderListPage from './pages/TenderListPage';
 
@@ -33,6 +35,8 @@ export default function App() {
             <main className="p-6">
               <Routes>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/dashboard/ministries" element={<MinistryDetailPage />} />
+                <Route path="/dashboard/contractors" element={<ContractorDetailPage />} />
                 <Route path="/" element={<Navigate to="/open" replace />} />
                 <Route path="/open" element={<TenderListPage status="open" />} />
                 <Route path="/closed" element={<TenderListPage status="closed" />} />

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { fetchDashboard } from '../api/client';
 import { formatMYR } from '../lib/format';
 
@@ -35,7 +36,10 @@ export default function DashboardPage() {
       )}
 
       <section>
-        <h2 className="font-semibold mb-3">Spend by Ministry</h2>
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="font-semibold">Spend by Ministry</h2>
+          <Link to="/dashboard/ministries" className="text-xs text-blue-700 underline">See more →</Link>
+        </div>
         <div className="space-y-2">
           {data.byMinistry.map((m) => (
             <div key={m.ministry}>
@@ -52,7 +56,10 @@ export default function DashboardPage() {
       </section>
 
       <section>
-        <h2 className="font-semibold mb-3">Top Contractors</h2>
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="font-semibold">Top Contractors</h2>
+          <Link to="/dashboard/contractors" className="text-xs text-blue-700 underline">See more →</Link>
+        </div>
         <div className="space-y-2">
           {data.topContractors.map((c) => (
             <div key={c.name}>
