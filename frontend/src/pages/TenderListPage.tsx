@@ -116,11 +116,27 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
           onChange={(e) => setSearchInput(e.target.value)}
           className="border border-[#e0e0e0] rounded-md px-3 py-2 w-72 text-[10px]"
         />
+        {hasWinners && (
+          <label className="flex flex-col text-[10px] gap-1">
+            Contractor
+            <input
+              type="text"
+              placeholder="Search contractor…"
+              className="border border-[#e0e0e0] rounded-md px-2 py-2 w-40 text-[10px]"
+              value={contractorInput}
+              onChange={(e) => setContractorInput(e.target.value)}
+            />
+          </label>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-3 items-end">
         {FILTERS.map((f) => (
           <label key={f.key} className="flex flex-col text-[10px] gap-1">
             {f.label}
             <select
-              className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
+              className="border border-[#e0e0e0] rounded-md px-2 py-2 w-40 truncate text-[10px]"
+              title={filters[f.key] || undefined}
               value={filters[f.key] ?? ''}
               onChange={(e) => {
                 setFilters((prev) => ({ ...prev, [f.key]: e.target.value }));
@@ -132,18 +148,6 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
             </select>
           </label>
         ))}
-        {hasWinners && (
-          <label className="flex flex-col text-[10px] gap-1">
-            Contractor
-            <input
-              type="text"
-              placeholder="Search contractor…"
-              className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
-              value={contractorInput}
-              onChange={(e) => setContractorInput(e.target.value)}
-            />
-          </label>
-        )}
         <FieldCodeFilter value={fieldCode} onChange={(c) => { setFieldCode(c); setPage(1); }} />
         <label className="flex flex-col text-[10px] gap-1">
           Closing from
