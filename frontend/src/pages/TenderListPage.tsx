@@ -61,7 +61,6 @@ export default function TenderListPage({ status, hasWinners = false, showHeader 
     (searchParams.get('sortOrder') as 'asc' | 'desc') ?? 'desc',
   );
   const [page, setPage] = useState(Number(searchParams.get('page') ?? '1'));
-  const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const h = setTimeout(() => { setSearch(searchInput); setPage(1); }, 300);
@@ -134,18 +133,6 @@ export default function TenderListPage({ status, hasWinners = false, showHeader 
   };
   const sortIndicator = (col: SortBy) => (sortBy === col ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : '');
   const totalPages = pageData ? Math.max(1, Math.ceil(pageData.total / pageData.pageSize)) : 1;
-
-  function toggleSave(key: string) {
-    setSavedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }
-
-  function shareLink(referenceNo: string) {
-    navigator.clipboard.writeText(`${window.location.origin}/tenders/${encodeURIComponent(referenceNo)}`);
-  }
 
   return (
     <div className="space-y-4">
@@ -243,7 +230,6 @@ export default function TenderListPage({ status, hasWinners = false, showHeader 
               <th className="px-3 py-3 uppercase tracking-wide">Source</th>
               {hasWinners && <th className="px-3 py-3 uppercase tracking-wide">Contractor</th>}
               {hasWinners && <th className="px-3 py-3 uppercase tracking-wide">Price Won</th>}
-              <th className="px-3 py-3 uppercase tracking-wide">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -281,32 +267,6 @@ export default function TenderListPage({ status, hasWinners = false, showHeader 
                 </td>
                 {hasWinners && <td className="px-3 py-3">{formatContractors(t.winners)}</td>}
                 {hasWinners && <td className="px-3 py-3 whitespace-nowrap">{formatPricesWon(t.winners)}</td>}
-                <td className="px-3 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="text-[10px] text-blue-700 underline"
-                      onClick={() => navigate(`/tenders/${encodeURIComponent(t.referenceNo)}`)}
-                    >
-                      View
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={savedKeys.has(t.dedupKey)}
-                      className={`text-[10px] underline ${savedKeys.has(t.dedupKey) ? 'text-amber-600' : 'text-gray-500'}`}
-                      onClick={() => toggleSave(t.dedupKey)}
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      className="text-[10px] text-gray-500 underline"
-                      onClick={() => shareLink(t.referenceNo)}
-                    >
-                      Share
-                    </button>
-                  </div>
-                </td>
               </tr>
             ))}
           </tbody>

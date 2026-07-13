@@ -3,7 +3,7 @@ import { render, screen, waitFor, within, fireEvent } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import TenderListPage from '../pages/TenderListPage';
 import { defaultPage, makeTender, server } from './mocks';
 
@@ -65,21 +65,16 @@ describe('TenderListPage', () => {
     expect(card).toContainElement(screen.getByLabelText(/ministry/i));
   });
 
-  it('renders View, Save, and Share action buttons per row without triggering row navigation for Save/Share', async () => {
-    const writeText = vi.fn();
-    Object.assign(navigator, { clipboard: { writeText } });
+  it('does not render an Actions column, and clicking a row still navigates to its detail page', async () => {
     renderList(<TenderListPage status="open" />);
     const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
 
-    await userEvent.click(within(row).getByRole('button', { name: 'Save' }));
-    expect(within(row).getByRole('button', { name: 'Save' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByText('DETAIL PAGE')).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /actions/i })).not.toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: 'View' })).not.toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
 
-    await userEvent.click(within(row).getByRole('button', { name: 'Share' }));
-    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/tenders/UTHM%2F54%2FP%2F02%2F023%2F2026'));
-    expect(screen.queryByText('DETAIL PAGE')).not.toBeInTheDocument();
-
-    await userEvent.click(within(row).getByRole('button', { name: 'View' }));
+    await userEvent.click(row);
     expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument();
   });
 
