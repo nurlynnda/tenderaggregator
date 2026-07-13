@@ -13,4 +13,9 @@ describe('StatCard', () => {
     render(<StatCard label="Awarded" value="—" />);
     expect(screen.getByText('—')).toBeInTheDocument();
   });
+
+  it('applies an extra className to the card root for callers that need to widen it', () => {
+    render(<StatCard label="Total Awarded Value" value="RM 144,178,825,811.57" className="col-span-2" />);
+    expect(screen.getByText('Total Awarded Value').parentElement).toHaveClass('col-span-2');
+  });
 });
