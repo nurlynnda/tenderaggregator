@@ -30,4 +30,6 @@ export interface DashboardStats {
   byMinistry: MinistryStat[];
   topContractors: ContractorStat[];
   byYear: YearStat[];
+  allMinistries: MinistryStat[];
+  allContractors: ContractorStat[];
 }

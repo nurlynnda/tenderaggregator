@@ -48,6 +48,16 @@ export const defaultDashboardStats: DashboardStats = {
     { year: 2024, totalValue: 400000 },
     { year: 2025, totalValue: 600000 },
   ],
+  allMinistries: [
+    { ministry: 'KEMENTERIAN A', totalValue: 600000, count: 3 },
+    { ministry: 'KEMENTERIAN B', totalValue: 400000, count: 2 },
+    { ministry: 'KEMENTERIAN C', totalValue: 100000, count: 1 },
+  ],
+  allContractors: [
+    { name: 'ACME SDN BHD', wins: 5, totalValue: 700000 },
+    { name: 'BETA ENGINEERING', wins: 2, totalValue: 300000 },
+    { name: 'GAMMA WORKS', wins: 1, totalValue: 50000 },
+  ],
 };
 
 export const handlers = [
