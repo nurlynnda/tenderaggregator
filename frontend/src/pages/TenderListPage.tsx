@@ -173,7 +173,7 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
         <table className="data-table w-full text-[10px]">
           <thead className="bg-gray-100 text-left">
             <tr>
-              <th className="px-3 py-2 uppercase tracking-wide">Title</th>
+              <th className="px-3 py-2 uppercase tracking-wide w-full">Title</th>
               <th className="px-3 py-2 uppercase tracking-wide">Reference No</th>
               <th className="px-3 py-2 uppercase tracking-wide">Ministry</th>
               <th className="px-3 py-2 uppercase tracking-wide">Type</th>
@@ -193,8 +193,10 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
                 onClick={() => navigate(`/tenders/${encodeURIComponent(t.referenceNo)}`)}
                 className="cursor-pointer hover:bg-blue-50"
               >
-                <td className="px-3 py-2 font-medium max-w-xl">{t.title}</td>
-                <td className="px-3 py-2 whitespace-nowrap">{t.referenceNo}</td>
+                <td className="px-3 py-2 font-medium">{t.title}</td>
+                <td className="px-3 py-2">
+                  <div className="w-28 break-all">{t.referenceNo}</div>
+                </td>
                 <td className="px-3 py-2">{t.ministry ?? '—'}</td>
                 <td className="px-3 py-2 capitalize">{t.procurementType ?? '—'}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{formatDate(t.closingDate) ?? '—'}</td>
