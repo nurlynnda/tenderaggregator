@@ -35,7 +35,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <section>
+      <section className="border border-[#e0e0e0] rounded-lg p-4">
         <div className="flex justify-between items-center mb-3">
           <h2 className="font-semibold">Spend by Ministry</h2>
           <Link to="/dashboard/ministries" className="text-xs text-blue-700 underline">See more →</Link>
@@ -55,7 +55,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section>
+      <section className="border border-[#e0e0e0] rounded-lg p-4">
         <div className="flex justify-between items-center mb-3">
           <h2 className="font-semibold">Top Contractors</h2>
           <Link to="/dashboard/contractors" className="text-xs text-blue-700 underline">See more →</Link>
@@ -75,7 +75,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section>
+      <section className="border border-[#e0e0e0] rounded-lg p-4">
         <h2 className="font-semibold mb-3">Awarded Value by Year</h2>
         <div className="space-y-2">
           {data.byYear.map((y) => (
