@@ -40,6 +40,19 @@ function normalizeContractorName(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toUpperCase().replace(/\.+$/, '');
 }
 
+// Some contractors re-register under a new legal name (e.g. converting from a
+// private "Sdn Bhd" to a public "Berhad" company) — unlike spelling variants,
+// these are genuinely different strings that normalizeContractorName can't
+// unify on its own. Keyed and valued by the already-normalized name.
+const CONTRACTOR_NAME_ALIASES: Record<string, string> = {
+  'INFOMINA SDN. BHD': 'INFOMINA BERHAD',
+};
+
+function canonicalizeContractorName(name: string): string {
+  const normalized = normalizeContractorName(name);
+  return CONTRACTOR_NAME_ALIASES[normalized] ?? normalized;
+}
+
 // 2017-2022 have negligible awarded value compared to 2023 onward — a handful
 // of stray records that clutter the year breakdown without adding signal.
 const EARLIEST_DASHBOARD_YEAR = 2023;
@@ -68,7 +81,7 @@ export function buildDashboardStats(tenders: Tender[]): DashboardStats {
     }
 
     for (const winner of t.winners ?? []) {
-      const contractorKey = normalizeContractorName(winner.name);
+      const contractorKey = canonicalizeContractorName(winner.name);
       const contractorStat = contractorMap.get(contractorKey) ?? { name: contractorKey, wins: 0, totalValue: 0 };
       contractorStat.wins += 1;
       contractorMap.set(contractorKey, contractorStat);

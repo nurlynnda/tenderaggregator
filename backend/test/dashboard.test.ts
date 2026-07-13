@@ -66,6 +66,16 @@ describe('buildDashboardStats', () => {
     });
   });
 
+  it('merges a contractor known to have re-registered under a new legal name', () => {
+    const stats = buildDashboardStats([
+      makeTender({ winners: [{ name: 'Infomina Berhad', price: 100 }] }),
+      makeTender({ winners: [{ name: 'Infomina Sdn. Bhd.', price: 50 }] }),
+    ]);
+    const matches = stats.allContractors.filter((c) => c.name.toUpperCase().includes('INFOMINA'));
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toEqual({ name: 'INFOMINA BERHAD', wins: 2, totalValue: 150 });
+  });
+
   it('groups a null ministry under "Unknown"', () => {
     const stats = buildDashboardStats([makeTender({ ministry: null })]);
     expect(stats.byMinistry).toEqual([{ ministry: 'Unknown', totalValue: 100, count: 1 }]);
