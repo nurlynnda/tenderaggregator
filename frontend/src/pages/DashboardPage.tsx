@@ -37,16 +37,12 @@ export default function DashboardPage() {
     <div className="max-w-4xl space-y-6">
       <h1 className="font-semibold text-lg">Dashboard</h1>
 
-      <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+      <section className="flex flex-wrap gap-4">
         <StatCard label="Open Tenders" value={openCount ? formatCount(openCount.total) : '—'} />
         <StatCard label="Closing Today" value={closingTodayCount ? formatCount(closingTodayCount.total) : '—'} />
         <StatCard label="Closing This Week" value={closingWeekCount ? formatCount(closingWeekCount.total) : '—'} />
         <StatCard label="Awarded" value={formatCount(data.totalAwardedCount)} />
-        <StatCard
-          label="Total Awarded Value"
-          value={formatMYR(data.totalAwardedValue)}
-          className="col-span-2"
-        />
+        <StatCard label="Total Awarded Value" value={formatMYR(data.totalAwardedValue)} />
       </section>
       {data.excludedFromValueCount > 0 && (
         <div className="text-xs text-gray-500">
