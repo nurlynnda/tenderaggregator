@@ -250,7 +250,7 @@ export default function TenderListPage({ status, hasWinners = false, showHeader 
                   </td>
                 )}
                 <td className="px-3 py-3 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-start gap-1">
                     <span>{formatDate(t.closingDate) ?? '—'}</span>
                     {status === 'open' && <DaysLeftBadge closingDate={t.closingDate} />}
                   </div>
