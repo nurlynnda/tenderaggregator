@@ -24,6 +24,8 @@ export interface DashboardStats {
   byMinistry: MinistryStat[];
   topContractors: ContractorStat[];
   byYear: YearStat[];
+  allMinistries: MinistryStat[];
+  allContractors: ContractorStat[];
 }
 
 function isAwarded(t: Tender): boolean {
@@ -70,10 +72,11 @@ export function buildDashboardStats(tenders: Tender[]): DashboardStats {
     }
   }
 
-  const byMinistry = [...ministryMap.values()].sort((a, b) => b.totalValue - a.totalValue).slice(0, 10);
-  const topContractors = [...contractorMap.values()]
-    .sort((a, b) => (b.wins - a.wins) || (b.totalValue - a.totalValue))
-    .slice(0, 10);
+  const allMinistries = [...ministryMap.values()].sort((a, b) => b.totalValue - a.totalValue);
+  const allContractors = [...contractorMap.values()]
+    .sort((a, b) => (b.wins - a.wins) || (b.totalValue - a.totalValue));
+  const byMinistry = allMinistries.slice(0, 10);
+  const topContractors = allContractors.slice(0, 10);
   const byYear = [...yearMap.values()].sort((a, b) => a.year - b.year);
 
   return {
@@ -83,5 +86,7 @@ export function buildDashboardStats(tenders: Tender[]): DashboardStats {
     byMinistry,
     topContractors,
     byYear,
+    allMinistries,
+    allContractors,
   };
 }

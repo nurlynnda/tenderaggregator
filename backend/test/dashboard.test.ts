@@ -23,6 +23,7 @@ describe('buildDashboardStats', () => {
     expect(buildDashboardStats([])).toEqual({
       totalAwardedValue: 0, totalAwardedCount: 0, excludedFromValueCount: 0,
       byMinistry: [], topContractors: [], byYear: [],
+      allMinistries: [], allContractors: [],
     });
   });
 
@@ -75,6 +76,9 @@ describe('buildDashboardStats', () => {
     expect(stats.byMinistry).toHaveLength(10);
     expect(stats.byMinistry[0]).toEqual({ ministry: 'MINISTRY 11', totalValue: 12000, count: 1 });
     expect(stats.byMinistry[9]).toEqual({ ministry: 'MINISTRY 2', totalValue: 3000, count: 1 });
+    expect(stats.allMinistries).toHaveLength(12);
+    expect(stats.allMinistries[0]).toEqual({ ministry: 'MINISTRY 11', totalValue: 12000, count: 1 });
+    expect(stats.allMinistries[11]).toEqual({ ministry: 'MINISTRY 0', totalValue: 1000, count: 1 });
   });
 
   it('truncates to the top 10 contractors by win count, descending, ties broken by value', () => {
@@ -93,6 +97,11 @@ describe('buildDashboardStats', () => {
     const tieIndexA = stats.topContractors.findIndex((c) => c.name === 'TIE A');
     const tieIndexB = stats.topContractors.findIndex((c) => c.name === 'TIE B');
     expect(tieIndexA).toBeLessThan(tieIndexB);
+    expect(stats.allContractors).toHaveLength(12);
+    expect(stats.allContractors[0]).toEqual({ name: 'BIG WINNER', wins: 3, totalValue: 1500 });
+    const allTieIndexA = stats.allContractors.findIndex((c) => c.name === 'TIE A');
+    const allTieIndexB = stats.allContractors.findIndex((c) => c.name === 'TIE B');
+    expect(allTieIndexA).toBeLessThan(allTieIndexB);
   });
 
   it('does not count a closed tender with no winners as awarded', () => {
