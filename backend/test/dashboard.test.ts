@@ -72,8 +72,20 @@ describe('buildDashboardStats', () => {
   });
 
   it('uses advertisedDate for the year bucket when closingDate is missing', () => {
-    const stats = buildDashboardStats([makeTender({ closingDate: null, advertisedDate: '2022-06-01' })]);
-    expect(stats.byYear).toEqual([{ year: 2022, totalValue: 100 }]);
+    const stats = buildDashboardStats([makeTender({ closingDate: null, advertisedDate: '2023-06-01' })]);
+    expect(stats.byYear).toEqual([{ year: 2023, totalValue: 100 }]);
+  });
+
+  it('excludes years before 2023 from byYear', () => {
+    const early = [2017, 2018, 2019, 2020, 2021, 2022].map((year) => makeTender({
+      closingDate: `${year}-06-01`, winners: [{ name: 'ACME SDN BHD', price: 50 }],
+    }));
+    const recent = makeTender({ closingDate: '2023-06-01', winners: [{ name: 'ACME SDN BHD', price: 100 }] });
+    const stats = buildDashboardStats([...early, recent]);
+    expect(stats.byYear).toEqual([{ year: 2023, totalValue: 100 }]);
+    // still counted toward overall totals even though excluded from the year breakdown
+    expect(stats.totalAwardedCount).toBe(7);
+    expect(stats.totalAwardedValue).toBe(400);
   });
 
   it('still counts a tender with neither date toward totals, but omits it from byYear', () => {

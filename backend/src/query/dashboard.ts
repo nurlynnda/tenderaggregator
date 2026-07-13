@@ -40,6 +40,10 @@ function normalizeContractorName(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toUpperCase().replace(/\.+$/, '');
 }
 
+// 2017-2022 have negligible awarded value compared to 2023 onward — a handful
+// of stray records that clutter the year breakdown without adding signal.
+const EARLIEST_DASHBOARD_YEAR = 2023;
+
 export function buildDashboardStats(tenders: Tender[]): DashboardStats {
   const awarded = tenders.filter(isAwarded);
 
@@ -86,7 +90,9 @@ export function buildDashboardStats(tenders: Tender[]): DashboardStats {
     .sort((a, b) => (b.totalValue - a.totalValue) || (b.wins - a.wins));
   const byMinistry = allMinistries.slice(0, 10);
   const topContractors = allContractors.slice(0, 10);
-  const byYear = [...yearMap.values()].sort((a, b) => a.year - b.year);
+  const byYear = [...yearMap.values()]
+    .filter((y) => y.year >= EARLIEST_DASHBOARD_YEAR)
+    .sort((a, b) => a.year - b.year);
 
   return {
     totalAwardedValue,
