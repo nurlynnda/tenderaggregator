@@ -240,17 +240,17 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
       </div>
 
       <div className="flex items-center gap-4">
-        <span className="text-xs">{pageData?.total ?? 0} tenders</span>
+        <span className="text-[10px] text-blue-700">{pageData?.total ?? 0} tenders</span>
         <button
-          className="border rounded-md px-3 py-1 text-sm disabled:opacity-50"
+          className="border border-blue-700 text-blue-700 rounded-md px-3 py-1 text-[10px] hover:bg-blue-50 disabled:opacity-50 disabled:text-gray-400 disabled:border-gray-300 disabled:hover:bg-transparent"
           disabled={page <= 1}
           onClick={() => setPage((p) => p - 1)}
         >
           Previous
         </button>
-        <span className="text-xs">Page {page} of {totalPages}</span>
+        <span className="text-[10px] text-blue-700">Page {page} of {totalPages}</span>
         <button
-          className="border rounded-md px-3 py-1 text-sm disabled:opacity-50"
+          className="border border-blue-700 text-blue-700 rounded-md px-3 py-1 text-[10px] hover:bg-blue-50 disabled:opacity-50 disabled:text-gray-400 disabled:border-gray-300 disabled:hover:bg-transparent"
           disabled={page >= totalPages}
           onClick={() => setPage((p) => p + 1)}
         >
