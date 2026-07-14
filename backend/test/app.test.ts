@@ -204,6 +204,37 @@ describe('API', () => {
     expect(res.status).toBe(400);
   });
 
+  it('POST /api/scrape with scope=results refreshes only that source\'s results jobs (202), and 409s when the adapter has none', async () => {
+    await repo.setMeta('myprocurement', { completedArchiveJobs: ['closed-quotation', 'closed-quotation-results'] });
+    const scrapedScopes: string[] = [];
+    const adapter = {
+      name: 'myprocurement',
+      scrape: async (scope: string) => { scrapedScopes.push(scope); },
+      archiveJobNames: () => ['closed-quotation', 'closed-quotation-results'],
+      resultsJobNames: () => ['closed-quotation-results'],
+    };
+    const mgr = new ScrapeManager([adapter], repo);
+    const app2 = createApp({ repo, manager: mgr });
+
+    const res = await request(app2).post('/api/scrape').send({ source: 'myprocurement', scope: 'results' });
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual({ started: true });
+    await waitUntilNotRunning(app2);
+    expect(scrapedScopes).toEqual(['archive']);
+    expect(repo.getMeta('myprocurement').completedArchiveJobs).toEqual(['closed-quotation']);
+
+    const noResultsAdapter = { name: 'span', scrape: async () => {}, archiveJobNames: () => [], resultsJobNames: () => [] };
+    const mgr2 = new ScrapeManager([noResultsAdapter], repo);
+    const app3 = createApp({ repo, manager: mgr2 });
+    const res2 = await request(app3).post('/api/scrape').send({ source: 'span', scope: 'results' });
+    expect(res2.status).toBe(409);
+  });
+
+  it('POST /api/scrape with scope=results and no source returns 400', async () => {
+    const res = await request(app).post('/api/scrape').send({ scope: 'results' });
+    expect(res.status).toBe(400);
+  });
+
   it('POST /api/scrape/cancel cancels a running scrape (200) and 409s when nothing is running', async () => {
     const idle = await request(app).post('/api/scrape/cancel');
     expect(idle.status).toBe(409);

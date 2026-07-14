@@ -8,7 +8,7 @@ import { buildDashboardStats } from '../query/dashboard.js';
 
 const ScrapeRequestSchema = z.object({
   source: z.string().optional(),
-  scope: z.enum(['open', 'full']).optional(),
+  scope: z.enum(['open', 'full', 'results']).optional(),
 });
 
 const QuerySchema = z.object({
@@ -64,6 +64,12 @@ export function createApp(deps: { repo: TenderRepository; manager: ScrapeManager
   app.post('/api/scrape', (req, res) => {
     const parsed = ScrapeRequestSchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+    if (parsed.data.scope === 'results') {
+      if (!parsed.data.source) return res.status(400).json({ error: 'source is required for scope=results' });
+      const started = deps.manager.refreshResults(parsed.data.source);
+      if (!started) return res.status(409).json({ error: 'cannot refresh results for this source' });
+      return res.status(202).json({ started: true });
+    }
     const scope = parsed.data.scope === 'full' ? 'all' : 'open';
     const started = deps.manager.start(scope, { sourceName: parsed.data.source });
     if (!started) return res.status(409).json({ error: 'scrape already running' });
