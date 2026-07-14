@@ -27,6 +27,10 @@ export class KwspAdapter implements ScraperAdapter {
     return JOBS.filter((j) => j.status === 'closed').map((j) => j.name);
   }
 
+  resultsJobNames(): string[] {
+    return this.archiveJobNames();
+  }
+
   async scrape(scope: ScrapeScope, hooks: ScrapeHooks, opts: ScrapeOptions = {}): Promise<void> {
     const jobs = JOBS.filter((j) => {
       const inScope = scope === 'all' ? true : scope === 'open' ? j.status === 'open' : j.status === 'closed';

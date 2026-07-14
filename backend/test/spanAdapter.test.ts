@@ -26,6 +26,11 @@ describe('SpanAdapter — job model', () => {
     );
   });
 
+  it('reports no results jobs — winners are fetched inline as part of each closed-year job, not a separate job', () => {
+    const adapter = new SpanAdapter(vi.fn(), FIXED_NOW);
+    expect(adapter.resultsJobNames()).toEqual([]);
+  });
+
   it('scope=open fetches only the current year, at /tender/<year>', async () => {
     const urls: string[] = [];
     const fetcher = vi.fn(async (url: string) => { urls.push(url); return pageHtml(1, 'REF/1'); });

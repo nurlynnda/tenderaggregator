@@ -34,6 +34,10 @@ export class MyProcurementAdapter implements ScraperAdapter {
     return MYPROCUREMENT_JOBS.filter((j) => j.status === 'closed').map(jobName);
   }
 
+  resultsJobNames(): string[] {
+    return MYPROCUREMENT_JOBS.filter((j) => j.kind === 'results').map(jobName);
+  }
+
   async scrape(scope: ScrapeScope, hooks: ScrapeHooks, opts: ScrapeOptions = {}): Promise<void> {
     const jobs = MYPROCUREMENT_JOBS.filter((j) => {
       const inScope = scope === 'all' ? true : scope === 'open' ? j.status === 'open' : j.status === 'closed';

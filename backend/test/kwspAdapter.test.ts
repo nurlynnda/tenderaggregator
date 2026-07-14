@@ -42,6 +42,11 @@ describe('KwspAdapter — job model', () => {
     expect(adapter.archiveJobNames()).toEqual(['results']);
   });
 
+  it('reports "results" as its only results job (same as its only archive job)', () => {
+    const adapter = new KwspAdapter(vi.fn());
+    expect(adapter.resultsJobNames()).toEqual(['results']);
+  });
+
   it('scope=open fetches the page once and emits only the open job', async () => {
     const fetcher = vi.fn(async () => PAGE_HTML);
     const adapter = new KwspAdapter(fetcher);

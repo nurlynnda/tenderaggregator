@@ -41,6 +41,10 @@ export class SpanAdapter implements ScraperAdapter {
     return this.jobs.filter((j) => j.status === 'closed').map(jobName);
   }
 
+  resultsJobNames(): string[] {
+    return []; // winners are fetched inline as part of each closed-year job, not a separate job
+  }
+
   async scrape(scope: ScrapeScope, hooks: ScrapeHooks, opts: ScrapeOptions = {}): Promise<void> {
     const jobs = this.jobs.filter((j) => {
       const inScope = scope === 'all' ? true : scope === 'open' ? j.status === 'open' : j.status === 'closed';

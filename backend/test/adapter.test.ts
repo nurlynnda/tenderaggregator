@@ -130,6 +130,11 @@ describe('MyProcurementAdapter', () => {
     ]);
   });
 
+  it('resultsJobNames() lists only the 2 job names that carry winner data', () => {
+    const adapter = new MyProcurementAdapter(vi.fn());
+    expect(adapter.resultsJobNames()).toEqual(['closed-quotation-results', 'closed-tender-results']);
+  });
+
   it('calls onJobDone with each job name once it finishes paginating, before moving to the next job', async () => {
     const fetcher = vi.fn(async () => pageResponse([1], 2));
     const adapter = new MyProcurementAdapter(fetcher);
