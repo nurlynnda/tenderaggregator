@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const maxMinistryValue = Math.max(0, ...data.byMinistry.map((m) => m.totalValue));
   const maxContractorValue = Math.max(0, ...data.topContractors.map((c) => c.totalValue));
   const maxYearValue = Math.max(0, ...data.byYear.map((y) => y.totalValue));
+  const maxYearCount = Math.max(0, ...data.byYear.map((y) => y.count));
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -90,22 +91,41 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="border border-[#e0e0e0] rounded-lg p-4">
-        <h2 className="font-semibold mb-3">Awarded Value by Year</h2>
-        <div className="space-y-2">
-          {data.byYear.map((y) => (
-            <div key={y.year}>
-              <div className="flex justify-between text-xs mb-1">
-                <span>{y.year}</span>
-                <span>{formatMYR(y.totalValue)}</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <section className="border border-[#e0e0e0] rounded-lg p-4">
+          <h2 className="font-semibold mb-3">Awarded Value by Year</h2>
+          <div className="space-y-2">
+            {data.byYear.map((y) => (
+              <div key={y.year}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span>{y.year}</span>
+                  <span>{formatMYR(y.totalValue)}</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded">
+                  <div className="h-2 bg-blue-800 rounded" style={{ width: `${barPct(y.totalValue, maxYearValue)}%` }} />
+                </div>
               </div>
-              <div className="h-2 bg-gray-100 rounded">
-                <div className="h-2 bg-blue-800 rounded" style={{ width: `${barPct(y.totalValue, maxYearValue)}%` }} />
+            ))}
+          </div>
+        </section>
+
+        <section className="border border-[#e0e0e0] rounded-lg p-4">
+          <h2 className="font-semibold mb-3">Tenders Awarded by Year</h2>
+          <div className="space-y-2">
+            {data.byYear.map((y) => (
+              <div key={y.year}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span>{y.year}</span>
+                  <span>{formatCount(y.count)}</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded">
+                  <div className="h-2 bg-blue-800 rounded" style={{ width: `${barPct(y.count, maxYearCount)}%` }} />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

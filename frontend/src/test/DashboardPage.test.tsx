@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
@@ -99,8 +99,29 @@ describe('DashboardPage', () => {
 
   it('shows awarded value by year in the order the API returned (ascending)', async () => {
     renderDashboard();
-    const years = await screen.findAllByText(/^20\d{2}$/);
+    const heading = await screen.findByRole('heading', { name: 'Awarded Value by Year' });
+    const section = heading.closest('section')!;
+    const years = within(section).getAllByText(/^20\d{2}$/);
     expect(years.map((el) => el.textContent)).toEqual(['2024', '2025']);
+  });
+
+  it('shows tenders awarded by year, next to the value-by-year bars, with counts not values', async () => {
+    renderDashboard();
+    const heading = await screen.findByRole('heading', { name: 'Tenders Awarded by Year' });
+    const section = heading.closest('section')!;
+    const years = within(section).getAllByText(/^20\d{2}$/);
+    expect(years.map((el) => el.textContent)).toEqual(['2024', '2025']);
+    expect(within(section).getByText('4')).toBeInTheDocument();
+    expect(within(section).getByText('9')).toBeInTheDocument();
+  });
+
+  it('sizes each year-count bar relative to the year with the most tenders awarded', async () => {
+    renderDashboard();
+    const heading = await screen.findByRole('heading', { name: 'Tenders Awarded by Year' });
+    const section = heading.closest('section')!;
+    const row2025 = within(section).getByText('2025').closest('div')!.parentElement!;
+    const bar = row2025.querySelector('.bg-blue-800') as HTMLElement;
+    expect(parseFloat(bar.style.width)).toBe(100); // 2025 has the most (9), so its bar is full width
   });
 
   it('links "See more" on Spend by Ministry to /dashboard/ministries', async () => {

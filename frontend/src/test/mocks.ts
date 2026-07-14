@@ -45,8 +45,8 @@ export const defaultDashboardStats: DashboardStats = {
     { name: 'BETA ENGINEERING', wins: 2, totalValue: 300000 },
   ],
   byYear: [
-    { year: 2024, totalValue: 400000 },
-    { year: 2025, totalValue: 600000 },
+    { year: 2024, totalValue: 400000, count: 4 },
+    { year: 2025, totalValue: 600000, count: 9 },
   ],
   allMinistries: [
     { ministry: 'KEMENTERIAN A', totalValue: 600000, count: 3 },

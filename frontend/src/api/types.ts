@@ -22,7 +22,7 @@ export interface ScrapeSource {
 export interface TenderDetail { tender: Tender }
 export interface MinistryStat { ministry: string; totalValue: number; count: number }
 export interface ContractorStat { name: string; wins: number; totalValue: number }
-export interface YearStat { year: number; totalValue: number }
+export interface YearStat { year: number; totalValue: number; count: number }
 export interface DashboardStats {
   totalAwardedValue: number;
   totalAwardedCount: number;

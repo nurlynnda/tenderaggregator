@@ -15,6 +15,7 @@ export interface ContractorStat {
 export interface YearStat {
   year: number;
   totalValue: number;
+  count: number;
 }
 
 export interface DashboardStats {
@@ -82,7 +83,8 @@ export function buildDashboardStats(tenders: Tender[]): DashboardStats {
     const year = dateStr ? Number(dateStr.slice(0, 4)) : null;
     let yearStat: YearStat | null = null;
     if (year !== null) {
-      yearStat = yearMap.get(year) ?? { year, totalValue: 0 };
+      yearStat = yearMap.get(year) ?? { year, totalValue: 0, count: 0 };
+      yearStat.count += 1;
       yearMap.set(year, yearStat);
     }
 

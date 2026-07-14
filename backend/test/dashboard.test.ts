@@ -34,7 +34,7 @@ describe('buildDashboardStats', () => {
     expect(stats.excludedFromValueCount).toBe(0);
     expect(stats.byMinistry).toEqual([{ ministry: 'KEMENTERIAN A', totalValue: 100, count: 1 }]);
     expect(stats.topContractors).toEqual([{ name: 'ACME SDN BHD', wins: 1, totalValue: 100 }]);
-    expect(stats.byYear).toEqual([{ year: 2024, totalValue: 100 }]);
+    expect(stats.byYear).toEqual([{ year: 2024, totalValue: 100, count: 1 }]);
   });
 
   it('splits a joint award: priced winner contributes value, unpriced winner still gets a win', () => {
@@ -100,7 +100,7 @@ describe('buildDashboardStats', () => {
 
   it('uses advertisedDate for the year bucket when closingDate is missing', () => {
     const stats = buildDashboardStats([makeTender({ closingDate: null, advertisedDate: '2023-06-01' })]);
-    expect(stats.byYear).toEqual([{ year: 2023, totalValue: 100 }]);
+    expect(stats.byYear).toEqual([{ year: 2023, totalValue: 100, count: 1 }]);
   });
 
   it('excludes years before 2023 from byYear', () => {
@@ -109,10 +109,22 @@ describe('buildDashboardStats', () => {
     }));
     const recent = makeTender({ closingDate: '2023-06-01', winners: [{ name: 'ACME SDN BHD', price: 100 }] });
     const stats = buildDashboardStats([...early, recent]);
-    expect(stats.byYear).toEqual([{ year: 2023, totalValue: 100 }]);
+    expect(stats.byYear).toEqual([{ year: 2023, totalValue: 100, count: 1 }]);
     // still counted toward overall totals even though excluded from the year breakdown
     expect(stats.totalAwardedCount).toBe(7);
     expect(stats.totalAwardedValue).toBe(400);
+  });
+
+  it('counts tenders (not winners) per year in byYear', () => {
+    const stats = buildDashboardStats([
+      makeTender({ closingDate: '2024-01-10', winners: [{ name: 'ACME SDN BHD', price: 10 }] }),
+      makeTender({ closingDate: '2024-02-10', winners: [{ name: 'ACME SDN BHD', price: 10 }, { name: 'BETA ENGINEERING', price: 20 }] }),
+      makeTender({ closingDate: '2025-01-10', winners: [{ name: 'ACME SDN BHD', price: 5 }] }),
+    ]);
+    expect(stats.byYear).toEqual([
+      { year: 2024, totalValue: 40, count: 2 },
+      { year: 2025, totalValue: 5, count: 1 },
+    ]);
   });
 
   it('still counts a tender with neither date toward totals, but omits it from byYear', () => {
