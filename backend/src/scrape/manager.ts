@@ -61,6 +61,34 @@ export class ScrapeManager {
     return true;
   }
 
+  /**
+   * Clears just the given source's *results* job names (per its adapter's resultsJobNames())
+   * from its persisted completedArchiveJobs, then re-runs an archive-scope scrape for that
+   * source — the existing skip-already-completed-job logic in each adapter's scrape() then
+   * naturally re-runs only those jobs, leaving already-complete advertisement/listing jobs
+   * alone. Returns false (same convention as start()) when a scrape is already running, the
+   * source name matches no registered adapter, or the adapter has no results jobs at all.
+   *
+   * repo.setMeta() is called without awaiting its returned promise: its in-memory map update
+   * happens synchronously (before setMeta's first `await`), so by the time start() is called
+   * on the next line — in the same synchronous tick — the trimmed completedArchiveJobs is
+   * already visible to runToCompletion()'s own read of it. This also means start()'s own
+   * synchronous `this.running = true` guard fires in that same tick, so there is no window
+   * where a concurrent start()/refreshResults() call could race past the "already running"
+   * check. (Chaining via `.then()` instead would leave exactly that race open, since the
+   * disk-write portion of setMeta is real async I/O.)
+   */
+  refreshResults(sourceName: string): boolean {
+    if (this.running) return false;
+    const adapter = this.adapters.find((a) => a.name === sourceName);
+    if (!adapter) return false;
+    const results = new Set(adapter.resultsJobNames?.() ?? []);
+    if (results.size === 0) return false;
+    const remaining = this.repo.getMeta(sourceName).completedArchiveJobs.filter((j) => !results.has(j));
+    void this.repo.setMeta(sourceName, { completedArchiveJobs: remaining });
+    return this.start('archive', { sourceName });
+  }
+
   async runToCompletion(scope: ScrapeScope, opts: { sourceName?: string } = {}): Promise<void> {
     if (this.running) return;
     this.running = true;

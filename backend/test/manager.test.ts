@@ -21,8 +21,9 @@ function makePatch(id: number): TenderPatch {
 function fakeAdapter(
   behavior: (scope: ScrapeScope, hooks: ScrapeHooks, opts?: import('../src/scrapers/types.js').ScrapeOptions) => Promise<void>,
   archiveJobNames: string[] = [],
+  resultsJobNames: string[] = [],
 ): ScraperAdapter {
-  return { name: 'fake', scrape: behavior, archiveJobNames: () => archiveJobNames };
+  return { name: 'fake', scrape: behavior, archiveJobNames: () => archiveJobNames, resultsJobNames: () => resultsJobNames };
 }
 
 async function waitUntil(predicate: () => boolean, timeoutMs = 2000, intervalMs = 20): Promise<void> {
@@ -147,6 +148,58 @@ describe('ScrapeManager', () => {
     await mgr.runToCompletion('archive');
     expect(seenSkip[0]).toEqual(new Set(['closed-quotation']));
     expect(repo.getMeta('fake').completedArchiveJobs).toEqual(['closed-quotation', 'closed-tender', 'closed-requisition']);
+  });
+
+  it('refreshResults clears only that source\'s results job names, re-runs an archive scrape, and leaves other completed jobs untouched', async () => {
+    const repo = await freshRepo();
+    await repo.setMeta('fake', {
+      completedArchiveJobs: ['closed-quotation', 'closed-quotation-results', 'closed-tender-results'],
+    });
+    const seenScopes: ScrapeScope[] = [];
+    let seenSkip: Set<string> | undefined;
+    const adapter = fakeAdapter(
+      async (scope, _hooks, opts) => { seenScopes.push(scope); seenSkip = opts?.skipJobNames; },
+      [],
+      ['closed-quotation-results', 'closed-tender-results'],
+    );
+    const mgr = new ScrapeManager([adapter], repo, { now: NOW });
+    expect(mgr.refreshResults('fake')).toBe(true);
+    await waitUntil(() => mgr.status().state === 'done');
+    expect(seenScopes).toEqual(['archive']);
+    // the two results jobs are no longer in skipJobNames (so the adapter will re-run them), but
+    // the untouched advertisement job is still there
+    expect(seenSkip).toEqual(new Set(['closed-quotation']));
+    // the fake adapter never calls onJobDone, so the persisted completedArchiveJobs reflects
+    // exactly what refreshResults left behind — proof it only removed the two results entries
+    expect(repo.getMeta('fake').completedArchiveJobs).toEqual(['closed-quotation']);
+  });
+
+  it('refreshResults returns false when a scrape is already running, without touching completedArchiveJobs', async () => {
+    const repo = await freshRepo();
+    await repo.setMeta('fake', { completedArchiveJobs: ['closed-quotation-results'] });
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const adapter = fakeAdapter(async () => gate, [], ['closed-quotation-results']);
+    const mgr = new ScrapeManager([adapter], repo, { now: NOW });
+    mgr.start('open');
+    await waitUntil(() => mgr.status().state === 'running');
+    expect(mgr.refreshResults('fake')).toBe(false);
+    expect(repo.getMeta('fake').completedArchiveJobs).toEqual(['closed-quotation-results']);
+    release();
+    await waitUntil(() => mgr.status().state !== 'running');
+  });
+
+  it('refreshResults returns false for a source name that matches no adapter', async () => {
+    const repo = await freshRepo();
+    const mgr = new ScrapeManager([], repo, { now: NOW });
+    expect(mgr.refreshResults('nope')).toBe(false);
+  });
+
+  it('refreshResults returns false when the adapter has no results jobs to refresh', async () => {
+    const repo = await freshRepo();
+    const adapter = fakeAdapter(async () => {}, [], []); // no results jobs, e.g. SPAN
+    const mgr = new ScrapeManager([adapter], repo, { now: NOW });
+    expect(mgr.refreshResults('fake')).toBe(false);
   });
 
   it('sets failed state with error message; keeps previously flushed batches', async () => {
