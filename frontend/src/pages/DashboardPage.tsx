@@ -52,11 +52,11 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <section className="border border-[#e0e0e0] rounded-lg p-4">
+        <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
           <h2 className="font-semibold mb-3">Awarded Value by Year</h2>
-          <div className="flex flex-wrap gap-4">
+          <div className="space-y-2">
             {data.byYear.map((y) => (
-              <div key={y.year} className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex-auto min-w-0">
+              <div key={y.year}>
                 <div className="flex justify-between text-xs mb-1">
                   <span>{y.year}</span>
                   <span>{formatMYR(y.totalValue)}</span>
@@ -69,11 +69,11 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="border border-[#e0e0e0] rounded-lg p-4">
+        <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
           <h2 className="font-semibold mb-3">Tenders Awarded by Year</h2>
-          <div className="flex flex-wrap gap-4">
+          <div className="space-y-2">
             {data.byYear.map((y) => (
-              <div key={y.year} className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex-auto min-w-0">
+              <div key={y.year}>
                 <div className="flex justify-between text-xs mb-1">
                   <span>{y.year}</span>
                   <span>{formatCount(y.count)}</span>

@@ -135,12 +135,12 @@ describe('DashboardPage', () => {
     expect(order.indexOf(countHeading.textContent)).toBeLessThan(order.indexOf(contractorHeading.textContent));
   });
 
-  it('styles each year card like the open-tenders stat cards (white, bordered, shadowed)', async () => {
+  it('styles the by-year chart cards like the open-tenders stat cards (white, bordered, shadowed)', async () => {
     renderDashboard();
-    const heading = await screen.findByRole('heading', { name: 'Awarded Value by Year' });
-    const section = heading.closest('section')!;
-    const yearCard = within(section).getByText('2024').closest('div')!.parentElement!;
-    expect(yearCard).toHaveClass('bg-white', 'border-gray-200', 'rounded-lg', 'shadow-sm');
+    const valueSection = (await screen.findByRole('heading', { name: 'Awarded Value by Year' })).closest('section')!;
+    const countSection = screen.getByRole('heading', { name: 'Tenders Awarded by Year' }).closest('section')!;
+    expect(valueSection).toHaveClass('bg-white', 'border-gray-200', 'rounded-lg', 'shadow-sm');
+    expect(countSection).toHaveClass('bg-white', 'border-gray-200', 'rounded-lg', 'shadow-sm');
   });
 
   it('links "See more" on Spend by Ministry to /dashboard/ministries', async () => {
