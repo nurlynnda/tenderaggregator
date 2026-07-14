@@ -5,6 +5,9 @@ import { cancelScrape, fetchScrapeStatus, fetchSources, triggerScrape } from '..
 // on its own — see docs/superpowers/specs/2026-07-14-refresh-awarded-results-design.md.
 // SPAN fetches winners inline as part of its normal closed-tender job, so it has no separate
 // results job to target here.
+// Manually maintained, not derived from each adapter's resultsJobNames() — if a source's
+// resultsJobNames() changes (added, removed, or renamed), this set must be updated to match,
+// or the button will be hidden when it shouldn't be, or shown and 409 when clicked.
 const SOURCES_WITH_RESULTS_REFRESH = new Set(['myprocurement', 'kwsp']);
 
 export default function SettingsPage() {

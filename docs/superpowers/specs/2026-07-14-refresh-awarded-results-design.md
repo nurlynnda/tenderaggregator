@@ -93,14 +93,11 @@ refreshResults(sourceName: string): boolean {
   if (this.running) return false;
   const adapter = this.adapters.find((a) => a.name === sourceName);
   if (!adapter) return false;
-  const results = new Set(adapter.resultsJobNames());
+  const results = new Set(adapter.resultsJobNames?.() ?? []);
   if (results.size === 0) return false;
-  const meta = this.repo.getMeta(sourceName);
-  const remaining = meta.completedArchiveJobs.filter((j) => !results.has(j));
-  void this.repo.setMeta(sourceName, { completedArchiveJobs: remaining }).then(() => {
-    this.start('archive', { sourceName });
-  });
-  return true;
+  const remaining = this.repo.getMeta(sourceName).completedArchiveJobs.filter((j) => !results.has(j));
+  void this.repo.setMeta(sourceName, { completedArchiveJobs: remaining });
+  return this.start('archive', { sourceName });
 }
 ```
 
@@ -108,13 +105,22 @@ Notes:
 - Returns `false` (same convention as `start()`) when: a scrape is already running, the
   source name is unknown, or the adapter has no results jobs (e.g. SPAN) — the API
   route below turns each of these into the appropriate HTTP response.
-- Persisting the trimmed `completedArchiveJobs` *before* calling `start()` means a crash
-  between the two steps just leaves the results jobs pending — the next `start('archive',
-  ...)` (whether from this feature or a future one) picks them up naturally, no
-  new failure mode introduced.
+- `repo.setMeta()` is called without awaiting its returned promise, and `start()` is
+  called synchronously right after, in the same tick — not chained via `.then()`. This
+  matters: `setMeta()`'s in-memory map update happens synchronously (before its first
+  `await`), so `start()`'s own read of `completedArchiveJobs` already sees the trimmed
+  list, and `start()`'s synchronous `this.running = true` guard fires in that same tick,
+  closing a race where a concurrent `start()`/`refreshResults()` call could otherwise
+  slip past the "already running" check while the `.then()` callback was still pending
+  on real disk I/O.
 - Everything after that — pagination, `onProgress`, `onBatch`, `onJobDone`
   re-persisting completion per job, flush cadence, cancellation — is the existing
   `runToCompletion('archive', ...)` path, untouched.
+- If the source's `completedArchiveJobs` is already empty (initial archive backfill
+  never completed, or a fresh environment), there's nothing left to filter out, so this
+  degenerates into a full archive re-crawl of every job for that source rather than just
+  its results jobs. Benign — a superset of the intended work, winners still get fetched
+  correctly — but worth knowing.
 
 ### `backend/src/api/app.ts` — `POST /api/scrape`
 

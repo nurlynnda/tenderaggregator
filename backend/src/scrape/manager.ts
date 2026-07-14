@@ -77,6 +77,13 @@ export class ScrapeManager {
    * where a concurrent start()/refreshResults() call could race past the "already running"
    * check. (Chaining via `.then()` instead would leave exactly that race open, since the
    * disk-write portion of setMeta is real async I/O.)
+   *
+   * If the source's completedArchiveJobs is already empty (e.g. its initial archive
+   * backfill never finished, or a fresh environment with no meta.json yet), there is
+   * nothing to filter out and this degenerates into a full archive re-crawl of every job
+   * for that source, not just its results jobs — harmless (a superset of the intended
+   * work; winners still end up fetched correctly) but worth knowing before reading the
+   * filter logic below.
    */
   refreshResults(sourceName: string): boolean {
     if (this.running) return false;
