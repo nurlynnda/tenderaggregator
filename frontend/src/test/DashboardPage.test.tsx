@@ -143,6 +143,14 @@ describe('DashboardPage', () => {
     expect(countSection).toHaveClass('bg-white', 'border-gray-200', 'rounded-lg', 'shadow-sm');
   });
 
+  it('styles the Spend by Ministry and Top Contractors cards like the open-tenders stat cards', async () => {
+    renderDashboard();
+    const ministrySection = (await screen.findByRole('heading', { name: 'Spend by Ministry' })).closest('section')!;
+    const contractorSection = screen.getByRole('heading', { name: 'Top Contractors' }).closest('section')!;
+    expect(ministrySection).toHaveClass('bg-white', 'border-gray-200', 'rounded-lg', 'shadow-sm');
+    expect(contractorSection).toHaveClass('bg-white', 'border-gray-200', 'rounded-lg', 'shadow-sm');
+  });
+
   it('links "See more" on Spend by Ministry to /dashboard/ministries', async () => {
     renderDashboard();
     await screen.findByText('KEMENTERIAN A');
