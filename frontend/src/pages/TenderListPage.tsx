@@ -190,7 +190,12 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
               {!hasWinners && <th className="px-3 py-3 uppercase tracking-wide">Ministry</th>}
               {!hasWinners && <th className="px-3 py-3 uppercase tracking-wide">Type</th>}
               <th className="px-3 py-3 uppercase tracking-wide">
-                <button onClick={() => toggleSort('closingDate')}>Closing Date{sortIndicator('closingDate')}</button>
+                <button onClick={() => toggleSort('closingDate')} className="inline-flex items-center gap-1">
+                  Closing Date{sortIndicator('closingDate')}
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M3 5h18l-7 8v6l-4 2v-8z" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
               </th>
               <th className="px-3 py-3 uppercase tracking-wide">Field Code</th>
               <th className="px-3 py-3 uppercase tracking-wide">Source</th>

@@ -63,6 +63,12 @@ describe('TenderListPage', () => {
     expect(within(row).queryByTestId('days-left')).not.toBeInTheDocument();
   });
 
+  it('shows a filter icon on the Closing Date column header', async () => {
+    renderList(<TenderListPage status="open" />);
+    const header = await screen.findByRole('columnheader', { name: /closing date/i });
+    expect(header.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
+  });
+
   it('wraps the search and filter controls in one card container', async () => {
     renderList(<TenderListPage status="open" />);
     await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
