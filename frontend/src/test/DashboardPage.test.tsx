@@ -124,6 +124,25 @@ describe('DashboardPage', () => {
     expect(parseFloat(bar.style.width)).toBe(100); // 2025 has the most (9), so its bar is full width
   });
 
+  it('places the by-year sections above Spend by Ministry and Top Contractors', async () => {
+    renderDashboard();
+    const valueHeading = await screen.findByRole('heading', { name: 'Awarded Value by Year' });
+    const countHeading = await screen.findByRole('heading', { name: 'Tenders Awarded by Year' });
+    const ministryHeading = await screen.findByRole('heading', { name: 'Spend by Ministry' });
+    const contractorHeading = await screen.findByRole('heading', { name: 'Top Contractors' });
+    const order = Array.from(document.body.querySelectorAll('h2')).map((h) => h.textContent);
+    expect(order.indexOf(valueHeading.textContent)).toBeLessThan(order.indexOf(ministryHeading.textContent));
+    expect(order.indexOf(countHeading.textContent)).toBeLessThan(order.indexOf(contractorHeading.textContent));
+  });
+
+  it('styles each year card like the open-tenders stat cards (white, bordered, shadowed)', async () => {
+    renderDashboard();
+    const heading = await screen.findByRole('heading', { name: 'Awarded Value by Year' });
+    const section = heading.closest('section')!;
+    const yearCard = within(section).getByText('2024').closest('div')!.parentElement!;
+    expect(yearCard).toHaveClass('bg-white', 'border-gray-200', 'rounded-lg', 'shadow-sm');
+  });
+
   it('links "See more" on Spend by Ministry to /dashboard/ministries', async () => {
     renderDashboard();
     await screen.findByText('KEMENTERIAN A');

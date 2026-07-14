@@ -51,6 +51,42 @@ export default function DashboardPage() {
         </div>
       )}
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <section className="border border-[#e0e0e0] rounded-lg p-4">
+          <h2 className="font-semibold mb-3">Awarded Value by Year</h2>
+          <div className="flex flex-wrap gap-4">
+            {data.byYear.map((y) => (
+              <div key={y.year} className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex-auto min-w-0">
+                <div className="flex justify-between text-xs mb-1">
+                  <span>{y.year}</span>
+                  <span>{formatMYR(y.totalValue)}</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded">
+                  <div className="h-2 bg-blue-800 rounded" style={{ width: `${barPct(y.totalValue, maxYearValue)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="border border-[#e0e0e0] rounded-lg p-4">
+          <h2 className="font-semibold mb-3">Tenders Awarded by Year</h2>
+          <div className="flex flex-wrap gap-4">
+            {data.byYear.map((y) => (
+              <div key={y.year} className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex-auto min-w-0">
+                <div className="flex justify-between text-xs mb-1">
+                  <span>{y.year}</span>
+                  <span>{formatCount(y.count)}</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded">
+                  <div className="h-2 bg-blue-800 rounded" style={{ width: `${barPct(y.count, maxYearCount)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
       <section className="border border-[#e0e0e0] rounded-lg p-4">
         <div className="flex justify-between items-center mb-3">
           <h2 className="font-semibold">Spend by Ministry</h2>
@@ -90,42 +126,6 @@ export default function DashboardPage() {
           ))}
         </div>
       </section>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <section className="border border-[#e0e0e0] rounded-lg p-4">
-          <h2 className="font-semibold mb-3">Awarded Value by Year</h2>
-          <div className="space-y-2">
-            {data.byYear.map((y) => (
-              <div key={y.year}>
-                <div className="flex justify-between text-xs mb-1">
-                  <span>{y.year}</span>
-                  <span>{formatMYR(y.totalValue)}</span>
-                </div>
-                <div className="h-2 bg-gray-100 rounded">
-                  <div className="h-2 bg-blue-800 rounded" style={{ width: `${barPct(y.totalValue, maxYearValue)}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="border border-[#e0e0e0] rounded-lg p-4">
-          <h2 className="font-semibold mb-3">Tenders Awarded by Year</h2>
-          <div className="space-y-2">
-            {data.byYear.map((y) => (
-              <div key={y.year}>
-                <div className="flex justify-between text-xs mb-1">
-                  <span>{y.year}</span>
-                  <span>{formatCount(y.count)}</span>
-                </div>
-                <div className="h-2 bg-gray-100 rounded">
-                  <div className="h-2 bg-blue-800 rounded" style={{ width: `${barPct(y.count, maxYearCount)}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
     </div>
   );
 }
