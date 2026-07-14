@@ -31,6 +31,7 @@ export const idleStatus: ScrapeStatus = { state: 'idle' };
 export const defaultSources: ScrapeSource[] = [
   { name: 'myprocurement', lastScrapedAt: '2026-07-07T00:00:00.000Z', lastArchiveBackfillAt: '2026-07-01T00:00:00.000Z', total: 5775 },
   { name: 'span', lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0 },
+  { name: 'kwsp', lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0 },
 ];
 export const defaultDashboardStats: DashboardStats = {
   totalAwardedValue: 1000000,

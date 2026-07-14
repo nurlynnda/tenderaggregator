@@ -27,7 +27,7 @@ export function fetchSources(): Promise<ScrapeSource[]> {
   return getJson('/api/sources');
 }
 
-export async function triggerScrape(params: { source?: string; scope?: 'open' | 'full' } = {}): Promise<void> {
+export async function triggerScrape(params: { source?: string; scope?: 'open' | 'full' | 'results' } = {}): Promise<void> {
   const res = await fetch('/api/scrape', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cancelScrape, fetchScrapeStatus, fetchSources, triggerScrape } from '../api/client';
 
+// Sources whose winner/award data comes from a separate "results" job that can be refreshed
+// on its own — see docs/superpowers/specs/2026-07-14-refresh-awarded-results-design.md.
+// SPAN fetches winners inline as part of its normal closed-tender job, so it has no separate
+// results job to target here.
+const SOURCES_WITH_RESULTS_REFRESH = new Set(['myprocurement', 'kwsp']);
+
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { data: sources } = useQuery({ queryKey: ['sources'], queryFn: fetchSources });
@@ -73,6 +79,15 @@ export default function SettingsPage() {
                     >
                       Full refresh
                     </button>
+                    {SOURCES_WITH_RESULTS_REFRESH.has(s.name) && (
+                      <button
+                        onClick={() => fetchMutation.mutate({ source: s.name, scope: 'results' })}
+                        disabled={running || fetchMutation.isPending}
+                        className="border border-blue-900 text-blue-900 text-sm rounded-md px-3 py-1.5 disabled:opacity-50"
+                      >
+                        Refresh awarded results
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

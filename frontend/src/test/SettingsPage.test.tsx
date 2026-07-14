@@ -50,6 +50,37 @@ describe('SettingsPage', () => {
     await waitFor(() => expect(seenBody).toEqual({ source: 'myprocurement', scope: 'full' }));
   });
 
+  it('shows a Refresh awarded results button for myprocurement and kwsp, not for span', async () => {
+    renderSettings();
+    const mpRow = await screen.findByRole('group', { name: 'myprocurement' });
+    expect(within(mpRow).getByRole('button', { name: /refresh awarded results/i })).toBeInTheDocument();
+    const kwspRow = screen.getByRole('group', { name: 'kwsp' });
+    expect(within(kwspRow).getByRole('button', { name: /refresh awarded results/i })).toBeInTheDocument();
+    const spanRow = screen.getByRole('group', { name: 'span' });
+    expect(within(spanRow).queryByRole('button', { name: /refresh awarded results/i })).not.toBeInTheDocument();
+  });
+
+  it("clicking Refresh awarded results sends that row's source with scope=results", async () => {
+    let seenBody: unknown;
+    server.use(http.post('/api/scrape', async ({ request }) => {
+      seenBody = await request.json();
+      return HttpResponse.json({ started: true }, { status: 202 });
+    }));
+    renderSettings();
+    const mpRow = await screen.findByRole('group', { name: 'myprocurement' });
+    await userEvent.click(within(mpRow).getByRole('button', { name: /refresh awarded results/i }));
+    await waitFor(() => expect(seenBody).toEqual({ source: 'myprocurement', scope: 'results' }));
+  });
+
+  it('disables Refresh awarded results while any row is running', async () => {
+    server.use(http.get('/api/scrape/status', () => HttpResponse.json({
+      state: 'running', source: 'span', job: 'open-2026', jobsCompleted: 0, jobsTotal: 1, currentPage: 1, lastPage: 1,
+    })));
+    renderSettings();
+    const mpRow = await screen.findByRole('group', { name: 'myprocurement' });
+    expect(within(mpRow).getByRole('button', { name: /refresh awarded results/i })).toBeDisabled();
+  });
+
   it("shows progress and a Cancel button on the running source's row, and disables every other row's buttons", async () => {
     server.use(http.get('/api/scrape/status', () => HttpResponse.json({
       state: 'running', source: 'span', job: 'open-2026', jobsCompleted: 0, jobsTotal: 1, currentPage: 1, lastPage: 1,
