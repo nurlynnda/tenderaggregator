@@ -187,10 +187,9 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
             <tr>
               <th className="px-3 py-3 uppercase tracking-wide w-full">Title</th>
               <th className="px-3 py-3 uppercase tracking-wide">Reference No</th>
-              {!hasWinners && <th className="px-3 py-3 uppercase tracking-wide">Ministry</th>}
               {!hasWinners && <th className="px-3 py-3 uppercase tracking-wide">Type</th>}
-              <th className="px-3 py-3 uppercase tracking-wide">
-                <button onClick={() => toggleSort('closingDate')} className="inline-flex items-center gap-1">
+              <th className="px-3 py-3 uppercase tracking-wide whitespace-nowrap min-w-[130px]">
+                <button onClick={() => toggleSort('closingDate')} className="inline-flex items-center gap-1 whitespace-nowrap">
                   Closing Date{sortIndicator('closingDate')}
                   <svg aria-hidden="true" viewBox="0 0 24 24" className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
                     <path d="M3 5h18l-7 8v6l-4 2v-8z" strokeLinecap="round" strokeLinejoin="round" />
@@ -214,14 +213,13 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
                 <td className="px-3 py-3">
                   <div className="w-28 break-all">{t.referenceNo}</div>
                 </td>
-                {!hasWinners && <td className="px-3 py-3">{t.ministry ?? '—'}</td>}
                 {!hasWinners && (
                   <td className="px-3 py-3">
                     {t.procurementType === null ? '—' : <Badge label={t.procurementType} />}
                   </td>
                 )}
                 <td className="px-3 py-3 whitespace-nowrap">
-                  <div className="flex flex-col items-start gap-1">
+                  <div className="flex flex-col items-center gap-1">
                     <span>{formatDate(t.closingDate) ?? '—'}</span>
                     {status === 'open' && <DaysLeftBadge closingDate={t.closingDate} />}
                   </div>

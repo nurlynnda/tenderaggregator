@@ -31,10 +31,16 @@ describe('App', () => {
 
   it('renders an icon next to each nav link', () => {
     render(<App />);
-    for (const name of ['Dashboard', 'Open Tenders', 'Closed Tenders', 'Awarded Tenders', 'Settings']) {
+    for (const name of ['Dashboard', 'Open Tenders', 'Closed Tenders', 'Awarded Tenders', 'Settings', 'About']) {
       const link = screen.getByRole('link', { name });
       expect(link.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
     }
+  });
+
+  it('renders an About link pinned in the nav, leading to the About page', async () => {
+    render(<App />);
+    await userEvent.click(screen.getByRole('link', { name: 'About' }));
+    expect(await screen.findByRole('heading', { name: 'About' })).toBeInTheDocument();
   });
 
   it('gives the main content area a light gray background', () => {
