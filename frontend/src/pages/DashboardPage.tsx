@@ -37,7 +37,7 @@ export default function DashboardPage() {
     <div className="max-w-4xl space-y-6">
       <h1 className="font-semibold text-lg">Dashboard</h1>
 
-      <section className="flex flex-wrap justify-between gap-4">
+      <section className="flex flex-wrap gap-4">
         <StatCard label="Open Tenders" value={openCount ? formatCount(openCount.total) : '—'} />
         <StatCard label="Closing Today" value={closingTodayCount ? formatCount(closingTodayCount.total) : '—'} />
         <StatCard label="Closing This Week" value={closingWeekCount ? formatCount(closingWeekCount.total) : '—'} />
