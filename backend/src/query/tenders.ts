@@ -90,7 +90,7 @@ export async function queryTenders(collection: QueryableCollection<TenderDoc>, q
   ];
 
   type FacetResult = { items: TenderDoc[]; totalCount: Array<{ count: number }> };
-  const [result] = (await collection.aggregate<FacetResult>(pipeline).toArray()) as FacetResult[];
+  const [result] = await collection.aggregate<FacetResult>(pipeline).toArray();
   return {
     items: (result?.items ?? []).map(fromDoc),
     total: result?.totalCount[0]?.count ?? 0,

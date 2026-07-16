@@ -1,5 +1,11 @@
 import type { Tender } from '@tms/shared';
 
+// Local structural alias for the `mongodb` package's `Document` type (a plain object),
+// used so `QueryableCollection.aggregate()`'s pipeline parameter and generic bound match
+// the shape `Collection<T>.aggregate()` expects, without adding a compile-time dependency
+// on the `mongodb` package's types in this file.
+type Document = Record<string, unknown>;
+
 export interface TenderDoc extends Omit<Tender, 'dedupKey'> {
   _id: string;
   _provenance: Record<string, string>;
@@ -10,13 +16,7 @@ export interface FindCursorLike<T> {
 }
 
 export interface AggregationCursorLike<R> {
-  // Widened from `Promise<R[]>`: the real `mongodb` driver's `AggregationCursor<T>.toArray()`
-  // always resolves to `Promise<Document[]>` regardless of the generic `R` the caller asked
-  // for (the driver doesn't thread the pipeline's output type through), so a strict
-  // `Promise<R[]>` here is never structurally satisfied by `Collection<T>['aggregate']`. Any
-  // object with a compatible `toArray()` is accepted instead; callers still get the `R[]`
-  // they asked for via the `aggregate<R>()` generic below.
-  toArray(): Promise<unknown[]>;
+  toArray(): Promise<R[]>;
 }
 
 export interface QueryableCollection<T> {
@@ -30,7 +30,7 @@ export interface QueryableCollection<T> {
   updateMany(filter: Record<string, unknown>, update: Record<string, unknown>): Promise<unknown>;
   countDocuments(filter?: Record<string, unknown>): Promise<number>;
   distinct(field: string, filter?: Record<string, unknown>): Promise<unknown[]>;
-  aggregate<R = unknown>(pipeline: Record<string, unknown>[]): AggregationCursorLike<R>;
+  aggregate<R extends Document = Document>(pipeline: Document[]): AggregationCursorLike<R>;
 }
 
 export function toDoc(tender: Tender, provenance: Record<string, string>): TenderDoc {
