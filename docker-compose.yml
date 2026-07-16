@@ -1,15 +1,27 @@
 services:
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
     ports:
       - "3001:3001"
-    volumes:
-      - ./backend/data:/app/data
     environment:
       - PORT=3001
-      - DATA_DIR=/app/data
+      - MONGO_URI=mongodb://mongo:27017/tms
+    depends_on:
+      mongo:
+        condition: service_healthy
 
   frontend:
     build:
@@ -19,3 +31,6 @@ services:
       - "8080:80"
     depends_on:
       - backend
+
+volumes:
+  mongo-data:
