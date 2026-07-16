@@ -1,6 +1,7 @@
 import { MyProcurementAdapter } from './scrapers/myprocurement/adapter.js';
 import { SpanAdapter } from './scrapers/span/adapter.js';
 import { KwspAdapter } from './scrapers/kwsp/adapter.js';
+import { LlmAdapter } from './scrapers/llm/adapter.js';
 import { createSpanFetchImpl } from './scrapers/span/spanFetchImpl.js';
 import { createKwspBrowserFetchImpl } from './scrapers/kwsp/kwspBrowserFetchImpl.js';
 import { createPoliteFetcher } from './http/politeFetch.js';
@@ -33,6 +34,7 @@ async function main() {
     new MyProcurementAdapter(createPoliteFetcher()),
     new SpanAdapter(createPoliteFetcher({ responseType: 'text', fetchImpl: createSpanFetchImpl() })),
     new KwspAdapter(createKwspBrowserFetchImpl()),
+    new LlmAdapter(createPoliteFetcher({ responseType: 'text' })),
   ];
   const manager = new ScrapeManager(adapters, repo);
 
