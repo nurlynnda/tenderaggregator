@@ -91,6 +91,10 @@ export class FakeCollection<T extends { _id: string }> {
   private readonly docs = new Map<string, T>();
 
   async findOne(filter: Filter): Promise<T | null> {
+    // Optimize for the common case of direct _id lookup
+    if (Object.keys(filter).length === 1 && '_id' in filter) {
+      return this.docs.get(filter._id as string) ?? null;
+    }
     for (const doc of this.docs.values()) if (matchesDoc(doc, filter)) return doc;
     return null;
   }

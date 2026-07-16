@@ -1,17 +1,15 @@
-import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import type { Tender, TenderPatch } from '@tms/shared';
+import type { QueryableCollection, TenderDoc } from './tenderDoc.js';
+import { fromDoc, toDoc } from './tenderDoc.js';
 
-export interface SourceMeta {
+export interface SourceMetaDoc {
+  _id: string;
   lastScrapedAt: string | null;
   lastArchiveBackfillAt: string | null;
   total: number;
-  /** Closed/archive job names (see ScraperAdapter.archiveJobNames) that have fully paginated at least
-   * once. Tracked per job kind — rather than a single completion flag — so that adding a new archive
-   * job (e.g. a results scraper) is automatically detected as incomplete and gets backfilled, instead
-   * of being silently skipped forever because an unrelated job already finished in the past. */
   completedArchiveJobs: string[];
 }
+export type SourceMeta = Omit<SourceMetaDoc, '_id'>;
 
 const DEFAULT_META: SourceMeta = {
   lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0, completedArchiveJobs: [],
@@ -26,99 +24,62 @@ const NULLABLE_FIELDS = new Set([
   'winners', 'procurementType',
 ]);
 
-type ProvenanceMap = Record<string, string>; // fieldName -> scrapedAt ISO of the patch that last wrote it
-
 export class TenderRepository {
-  private readonly merged = new Map<string, Tender>(); // dedupKey -> Tender
-  private readonly provenance = new Map<string, ProvenanceMap>(); // dedupKey -> field provenance
-  private readonly metaBySource = new Map<string, SourceMeta>();
+  constructor(
+    private readonly tenders: QueryableCollection<TenderDoc>,
+    private readonly sourceMeta: QueryableCollection<SourceMetaDoc>,
+  ) {}
 
-  constructor(private readonly dataDir: string) {}
-
-  async load(): Promise<void> {
-    try {
-      const tenders = JSON.parse(await readFile(join(this.dataDir, 'tenders.json'), 'utf8')) as Tender[];
-      for (const t of tenders) this.merged.set(t.dedupKey, t);
-    } catch (err) {
-      if (!isNotFoundError(err)) throw err;
-    }
-    try {
-      const prov = JSON.parse(
-        await readFile(join(this.dataDir, 'field-provenance.json'), 'utf8'),
-      ) as Record<string, ProvenanceMap>;
-      for (const [key, value] of Object.entries(prov)) this.provenance.set(key, value);
-    } catch (err) {
-      if (!isNotFoundError(err)) throw err;
-    }
-
-    let sourceDirs: string[] = [];
-    try {
-      sourceDirs = (await readdir(this.dataDir, { withFileTypes: true }))
-        .filter((e) => e.isDirectory())
-        .map((e) => e.name);
-    } catch {
-      return; // data dir doesn't exist yet
-    }
-    for (const source of sourceDirs) {
-      try {
-        const meta = JSON.parse(await readFile(join(this.dataDir, source, 'meta.json'), 'utf8')) as SourceMeta;
-        this.metaBySource.set(source, { ...DEFAULT_META, ...meta });
-      } catch (err) {
-        if (!isNotFoundError(err)) throw err;
-      }
-    }
+  async getAll(): Promise<Tender[]> {
+    const docs = await this.tenders.find({}).toArray();
+    return docs.map(fromDoc);
   }
 
-  getAll(): Tender[] {
-    return [...this.merged.values()];
+  async findByDedupKey(dedupKey: string): Promise<Tender | null> {
+    const doc = await this.tenders.findOne({ _id: dedupKey });
+    return doc ? fromDoc(doc) : null;
   }
 
-  findByDedupKey(dedupKey: string): Tender | null {
-    return this.merged.get(dedupKey) ?? null;
+  async findAwarded(): Promise<Tender[]> {
+    const docs = await this.tenders
+      .find({ status: 'closed', winners: { $ne: null, $not: { $size: 0 } } })
+      .toArray();
+    return docs.map(fromDoc);
   }
 
-  hasSource(source: string): boolean {
-    return this.metaBySource.has(source);
+  async hasSource(source: string): Promise<boolean> {
+    return (await this.sourceMeta.findOne({ _id: source })) !== null;
   }
 
-  getSourceCount(source: string): number {
-    let count = 0;
-    for (const t of this.merged.values()) {
-      if (t.sources.some((s) => s.source === source)) count += 1;
-    }
-    return count;
+  async getSourceCount(source: string): Promise<number> {
+    return this.tenders.countDocuments({ 'sources.source': source });
   }
 
-  mergeMany(patches: TenderPatch[]): void {
-    for (const patch of patches) this.mergeOne(patch);
+  async mergeMany(patches: TenderPatch[]): Promise<void> {
+    for (const patch of patches) await this.mergeOne(patch);
   }
 
   // Derives status from dates already on the record: flips `open` -> `closed` once the
   // closing-date cutoff (or, lacking one, the one-month-past-advertised fallback) has
-  // passed. Never touches field-provenance.json — this is a correction, not an observation.
-  reconcileStaleOpen(now: Date = new Date()): number {
-    let count = 0;
-    for (const t of this.merged.values()) {
-      if (t.status !== 'open') continue;
-
-      if (t.closingDate) {
-        if (now >= closingCutoff(t.closingDate)) {
-          t.status = 'closed';
-          count += 1;
-        }
-      } else if (t.advertisedDate) {
-        if (now > addOneMonth(t.advertisedDate)) {
-          t.status = 'closed';
-          count += 1;
-        }
+  // passed. Never touches provenance — this is a correction, not an observation.
+  async reconcileStaleOpen(now: Date = new Date()): Promise<number> {
+    const openDocs = await this.tenders.find({ status: 'open' }).toArray();
+    const staleIds: string[] = [];
+    for (const doc of openDocs) {
+      if (doc.closingDate) {
+        if (now >= closingCutoff(doc.closingDate)) staleIds.push(doc._id);
+      } else if (doc.advertisedDate) {
+        if (now > addOneMonth(doc.advertisedDate)) staleIds.push(doc._id);
       }
     }
-    return count;
+    if (staleIds.length === 0) return 0;
+    await this.tenders.updateMany({ _id: { $in: staleIds } }, { $set: { status: 'closed' } });
+    return staleIds.length;
   }
 
-  private mergeOne(patch: TenderPatch): void {
+  private async mergeOne(patch: TenderPatch): Promise<void> {
     const key = patch.dedupKey;
-    const existing = this.merged.get(key);
+    const existing = await this.tenders.findOne({ _id: key });
 
     if (!existing) {
       const seeded: Tender = {
@@ -141,19 +102,18 @@ export class TenderRepository {
         scrapedAt: patch.scrapedAt,
         sources: [patch.source],
       };
-      const prov: ProvenanceMap = {};
+      const prov: Record<string, string> = {};
       for (const field of Object.keys(patch)) {
         if (field === 'dedupKey' || field === 'source') continue;
         prov[field] = patch.scrapedAt;
       }
-      this.merged.set(key, seeded);
-      this.provenance.set(key, prov);
+      await this.tenders.replaceOne({ _id: key }, toDoc(seeded, prov), { upsert: true });
       return;
     }
 
-    const prov = this.provenance.get(key) ?? {};
-    this.provenance.set(key, prov);
-    const mutable = existing as unknown as Record<string, unknown>;
+    const merged = fromDoc(existing);
+    const prov = { ...existing._provenance };
+    const mutable = merged as unknown as Record<string, unknown>;
 
     for (const [field, value] of Object.entries(patch)) {
       if (field === 'dedupKey' || field === 'source') continue;
@@ -170,61 +130,24 @@ export class TenderRepository {
       prov[field] = patch.scrapedAt;
     }
 
-    const srcIdx = existing.sources.findIndex((s) => s.source === patch.source.source);
-    if (srcIdx === -1) existing.sources.push(patch.source);
-    else existing.sources[srcIdx] = patch.source;
+    const srcIdx = merged.sources.findIndex((s) => s.source === patch.source.source);
+    if (srcIdx === -1) merged.sources.push(patch.source);
+    else merged.sources[srcIdx] = patch.source;
+
+    await this.tenders.replaceOne({ _id: key }, toDoc(merged, prov), { upsert: true });
   }
 
-  private flushChain: Promise<void> = Promise.resolve();
-
-  // Serializes every flush behind a promise chain: multiple independent callers (the
-  // scrape manager and the recurring stale-status sweep both call this) must never have
-  // their writes to tenders.json.tmp interleave. Each caller still gets a promise tied to
-  // its own flush's outcome — a failed flush doesn't wedge the chain for later callers.
-  flush(): Promise<void> {
-    const next = this.flushChain.then(
-      () => this.doFlush(),
-      () => this.doFlush(),
-    );
-    this.flushChain = next.catch(() => {});
-    return next;
-  }
-
-  private async doFlush(): Promise<void> {
-    await mkdir(this.dataDir, { recursive: true });
-    // Each write below is individually atomic (temp file + rename), but the pair is not
-    // atomic together: a crash between them can leave field-provenance.json out of sync
-    // with tenders.json. This is a known, accepted window — the null-clobber guard in
-    // mergeOne() (NULLABLE_FIELDS) means a slightly stale/missing provenance entry can at
-    // worst cause one extra overwrite on the next merge, never data loss or corruption.
-    await atomicWrite(join(this.dataDir, 'tenders.json'), JSON.stringify([...this.merged.values()]));
-    await atomicWrite(
-      join(this.dataDir, 'field-provenance.json'),
-      JSON.stringify(Object.fromEntries(this.provenance)),
-    );
-  }
-
-  getMeta(source: string): SourceMeta {
-    return this.metaBySource.get(source) ?? { ...DEFAULT_META };
+  async getMeta(source: string): Promise<SourceMeta> {
+    const doc = await this.sourceMeta.findOne({ _id: source });
+    if (!doc) return { ...DEFAULT_META };
+    const { _id, ...meta } = doc;
+    return { ...DEFAULT_META, ...meta };
   }
 
   async setMeta(source: string, patch: Partial<SourceMeta>): Promise<void> {
-    const merged = { ...this.getMeta(source), ...patch };
-    this.metaBySource.set(source, merged);
-    const dir = join(this.dataDir, source);
-    await mkdir(dir, { recursive: true });
-    await atomicWrite(join(dir, 'meta.json'), JSON.stringify(merged, null, 2));
+    const merged = { ...(await this.getMeta(source)), ...patch };
+    await this.sourceMeta.replaceOne({ _id: source }, { _id: source, ...merged }, { upsert: true });
   }
-}
-
-function isNotFoundError(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && 'code' in err && (err as { code?: unknown }).code === 'ENOENT';
-}
-
-async function atomicWrite(path: string, content: string): Promise<void> {
-  const tmp = `${path}.tmp`;
-  await writeFile(tmp, content, 'utf8');
-  await rename(tmp, path);
 }
 
 // 12:01pm Malaysia time (UTC+8, no DST) on the given YYYY-MM-DD closing date — every
