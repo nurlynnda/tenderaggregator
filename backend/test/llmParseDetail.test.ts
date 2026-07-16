@@ -16,6 +16,7 @@ function detailHtml(opts: {
   dipelawaKepada?: string;
   syaratPendaftaran?: string;
   closingDate?: string;
+  lawatanTapak?: string;
 }): string {
   const {
     title,
@@ -25,6 +26,7 @@ function detailHtml(opts: {
     dipelawaKepada = 'Syarikat-syarikat yang berdaftar dengan SSM',
     syaratPendaftaran = '-',
     closingDate = '2026-10-14',
+    lawatanTapak = '-',
   } = opts;
   return `<div class="panel clear-padding" id="tender-table-head">
     <div class="panel-content" id="tender-printarea">
@@ -36,6 +38,7 @@ function detailHtml(opts: {
         <tr><td style="font-weight: bold;">Jenis</td><td>${jenis}</td></tr>
         <tr><td style="font-weight: bold;">Kategori</td><td>${kategori}</td></tr>
         <tr><td style="font-weight: bold;">Syarat Pendaftaran</td><td>${syaratPendaftaran}</td></tr>
+        <tr><td style="font-weight: bold;">Lawatan Tapak</td><td>${lawatanTapak}</td></tr>
         <tr><td style="font-weight: bold;">Tarikh dan Waktu Tutup</td><td>${closingDate}</td></tr>
       </tbody></table>
     </div>
@@ -150,6 +153,41 @@ describe('parseLlmDetailHtml — embedded page, exact values', () => {
     expect(t!.fieldCodes).toEqual([]);
   });
 
+  it('extracts "Lawatan Tapak" into a structured event, labeled "Lawatan Tapak" when no briefing is mentioned', () => {
+    const html = detailHtml({
+      title: 'T',
+      lawatanTapak: 'Tarikh: 20-07-2026  Tempat: Auditorium, Blok B, Ibu Pejabat, LLM, Kajang, Selangor.  Masa: 10:00 AM',
+    });
+    const t = parseLlmDetailHtml(html, ctx);
+    expect(t!.events).toEqual([
+      { label: 'Lawatan Tapak', date: '2026-07-20', address: 'Auditorium, Blok B, Ibu Pejabat, LLM, Kajang, Selangor.' },
+    ]);
+  });
+
+  it('labels the event "Taklimat & Lawatan Tapak" when the registration text mentions a briefing', () => {
+    const html = detailHtml({
+      title: 'T',
+      syaratPendaftaran: 'Taklimat Tender: Tarikh: 6 Julai 2026 Masa: 11.00 Pagi (KEHADIRAN TAKLIMAT TENDER ADALAH DIWAJIBKAN)',
+      lawatanTapak: 'Tarikh: 06-07-2026  Tempat: Auditorium, Blok B, Ibu Pejabat, LLM, Kajang, Selangor.  Masa: 11:00 AM',
+    });
+    const t = parseLlmDetailHtml(html, ctx);
+    expect(t!.events).toEqual([
+      { label: 'Taklimat & Lawatan Tapak', date: '2026-07-06', address: 'Auditorium, Blok B, Ibu Pejabat, LLM, Kajang, Selangor.' },
+    ]);
+  });
+
+  it('returns an empty events array when Lawatan Tapak is "-"', () => {
+    const html = detailHtml({ title: 'T', lawatanTapak: '-' });
+    const t = parseLlmDetailHtml(html, ctx);
+    expect(t!.events).toEqual([]);
+  });
+
+  it('returns an empty events array when Lawatan Tapak has neither a date nor a place ("Tarikh: Tempat: - Masa: ...")', () => {
+    const html = detailHtml({ title: 'T', lawatanTapak: 'Tarikh: Tempat: - Masa: 8:00 AM' });
+    const t = parseLlmDetailHtml(html, ctx);
+    expect(t!.events).toEqual([]);
+  });
+
   it('returns null when the page has no tender panel', () => {
     expect(parseLlmDetailHtml('<div>not a tender page</div>', ctx)).toBeNull();
   });
@@ -194,6 +232,9 @@ describe('parseLlmDetailHtml — live fixture, structural invariants', () => {
     );
     expect(t!.procurementType).toBe('tender');
     expect(t!.category).toBe('Bekalan Perkhidmatan');
+    expect(t!.events).toEqual([
+      { label: 'Taklimat & Lawatan Tapak', date: '2026-07-06', address: 'Auditorium, Blok B, Ibu Pejabat, LLM, Kajang, Selangor.' },
+    ]);
     expect(t!.fieldCodes).toEqual(['210103']);
     expect(t!.advertisedDate).toBe('2026-07-06');
     expect(t!.closingDate).toBe('2026-07-24');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  parseDdMmYyyy, parseDottedDate, parseIsoDatePrefix, parseMonthYearToFirstOfMonth,
+  parseDashedDate, parseDdMmYyyy, parseDottedDate, parseIsoDatePrefix, parseMonthYearToFirstOfMonth,
   parseRmPrice, splitFieldCodes,
 } from '../src/parsing/text.js';
 
@@ -78,6 +78,21 @@ describe('parseDottedDate', () => {
     expect(parseDottedDate('')).toBeNull();
     expect(parseDottedDate(null)).toBeNull();
     expect(parseDottedDate(undefined)).toBeNull();
+  });
+});
+
+describe('parseDashedDate', () => {
+  it('parses dd-mm-yyyy into ISO date', () => {
+    expect(parseDashedDate('20-07-2026')).toBe('2026-07-20');
+    expect(parseDashedDate(' 06-07-2026 ')).toBe('2026-07-06');
+  });
+  it('returns null for invalid or missing input', () => {
+    expect(parseDashedDate('2026-07-20')).toBeNull(); // wrong order/separator
+    expect(parseDashedDate('32-01-2026')).toBeNull();
+    expect(parseDashedDate('30-02-2026')).toBeNull();
+    expect(parseDashedDate('')).toBeNull();
+    expect(parseDashedDate(null)).toBeNull();
+    expect(parseDashedDate(undefined)).toBeNull();
   });
 });
 

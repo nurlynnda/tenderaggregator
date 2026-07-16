@@ -51,6 +51,20 @@ export function parseDottedDate(s: string | null | undefined): string | null {
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
+export function parseDashedDate(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const m = s.trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!m) return null;
+  const dd = Number(m[1]);
+  const mm = Number(m[2]);
+  const yyyy = Number(m[3]);
+  const date = new Date(Date.UTC(yyyy, mm - 1, dd));
+  if (date.getUTCFullYear() !== yyyy || date.getUTCMonth() !== mm - 1 || date.getUTCDate() !== dd) {
+    return null;
+  }
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
 const MONTH_NAMES = [
   'january', 'february', 'march', 'april', 'may', 'june',
   'july', 'august', 'september', 'october', 'november', 'december',
