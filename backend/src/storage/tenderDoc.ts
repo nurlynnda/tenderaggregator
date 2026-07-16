@@ -10,7 +10,13 @@ export interface FindCursorLike<T> {
 }
 
 export interface AggregationCursorLike<R> {
-  toArray(): Promise<R[]>;
+  // Widened from `Promise<R[]>`: the real `mongodb` driver's `AggregationCursor<T>.toArray()`
+  // always resolves to `Promise<Document[]>` regardless of the generic `R` the caller asked
+  // for (the driver doesn't thread the pipeline's output type through), so a strict
+  // `Promise<R[]>` here is never structurally satisfied by `Collection<T>['aggregate']`. Any
+  // object with a compatible `toArray()` is accepted instead; callers still get the `R[]`
+  // they asked for via the `aggregate<R>()` generic below.
+  toArray(): Promise<unknown[]>;
 }
 
 export interface QueryableCollection<T> {
