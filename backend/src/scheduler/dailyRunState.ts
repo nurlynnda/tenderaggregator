@@ -1,28 +1,18 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import type { QueryableCollection } from '../storage/tenderDoc.js';
 
-interface DailyRunState {
+export interface SchedulerStateDoc {
+  _id: 'daily';
   lastRunDate: string | null;
 }
 
-export function createDailyRunStateStore(dataDir: string) {
-  const filePath = join(dataDir, 'daily-schedule.json');
+export function createDailyRunStateStore(collection: QueryableCollection<SchedulerStateDoc>) {
   return {
     async load(): Promise<string | null> {
-      try {
-        const raw = JSON.parse(await readFile(filePath, 'utf8')) as DailyRunState;
-        return raw.lastRunDate ?? null;
-      } catch (err) {
-        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
-        throw err;
-      }
+      const doc = await collection.findOne({ _id: 'daily' });
+      return doc?.lastRunDate ?? null;
     },
     async save(date: string): Promise<void> {
-      await mkdir(dataDir, { recursive: true });
-      const tmp = `${filePath}.tmp`;
-      const state: DailyRunState = { lastRunDate: date };
-      await writeFile(tmp, JSON.stringify(state), 'utf8');
-      await rename(tmp, filePath);
+      await collection.replaceOne({ _id: 'daily' }, { _id: 'daily', lastRunDate: date }, { upsert: true });
     },
   };
 }
