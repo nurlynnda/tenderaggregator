@@ -28,6 +28,13 @@ describe('TenderRepository', () => {
     expect(await repo.hasSource('myprocurement')).toBe(false);
   });
 
+  it('count() reports the number of stored tenders without loading them', async () => {
+    const { repo } = freshRepo();
+    expect(await repo.count()).toBe(0);
+    await repo.mergeMany([makePatch()]);
+    expect(await repo.count()).toBe(1);
+  });
+
   it('seeds a new merged record from the first patch, defaulting unobserved fields', async () => {
     const { repo } = freshRepo();
     await repo.mergeMany([makePatch()]);

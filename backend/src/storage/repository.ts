@@ -35,6 +35,10 @@ export class TenderRepository {
     return docs.map(fromDoc);
   }
 
+  async count(): Promise<number> {
+    return this.tenders.countDocuments({});
+  }
+
   async findByDedupKey(dedupKey: string): Promise<Tender | null> {
     const doc = await this.tenders.findOne({ _id: dedupKey });
     return doc ? fromDoc(doc) : null;

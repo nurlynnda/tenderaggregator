@@ -123,8 +123,11 @@ shape as today's `Tender` type (`shared/src/tender.ts`), plus one additional fie
 Indexes:
 - `status`, `ministry`, `agency`, `category`, `closingDate`, `advertisedDate` — single-field
   indexes, one per common filter in `TenderQuery`.
-- Text index on `title` + `referenceNo` for the `q.search` filter.
 - `sources.source` — supports the `q.source` filter and `getSourceCount()`.
+
+`q.search` matches via case-insensitive `$regex` substring matching on `title`/`referenceNo`
+(needed to support partial-word matches like `search=stride` matching `KP/STRIDE/26`), so it
+is not backed by a Mongo text index — `$regex` scans can't use one anyway.
 
 ### `sourceMeta` collection
 One document per scraper source. `_id` = source name (`myprocurement`, `span`, `kwsp`,

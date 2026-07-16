@@ -39,7 +39,6 @@ async function main() {
     tendersCollection.createIndex({ closingDate: 1 }),
     tendersCollection.createIndex({ advertisedDate: 1 }),
     tendersCollection.createIndex({ 'sources.source': 1 }),
-    tendersCollection.createIndex({ title: 'text', referenceNo: 'text' }),
   ]);
 
   const repo = new TenderRepository(tendersCollection, sourceMetaCollection);
@@ -65,7 +64,7 @@ async function main() {
   // docs/superpowers/specs/2026-07-10-scrape-settings-page-design.md): a brand-new adapter
   // always gets its own full scrape at startup, regardless of whether other adapters already
   // have data.
-  const mergedIsEmpty = (await repo.getAll()).length === 0;
+  const mergedIsEmpty = (await repo.count()) === 0;
   const plan: Array<{ name: string; scope: 'all' | 'archive' }> = [];
   for (const adapter of adapters) {
     const hasSource = await repo.hasSource(adapter.name);
