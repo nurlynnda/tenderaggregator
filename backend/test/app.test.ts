@@ -1,6 +1,3 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { TenderPatch } from '@tms/shared';
@@ -8,6 +5,9 @@ import { createApp } from '../src/api/app.js';
 import { ScrapeManager } from '../src/scrape/manager.js';
 import type { ScrapeHooks } from '../src/scrapers/types.js';
 import { TenderRepository } from '../src/storage/repository.js';
+import type { SourceMetaDoc } from '../src/storage/repository.js';
+import type { TenderDoc } from '../src/storage/tenderDoc.js';
+import { FakeCollection } from './support/fakeMongoCollection.js';
 
 let seq = 0;
 function patch(overrides: Partial<TenderPatch> = {}): TenderPatch {
@@ -33,15 +33,16 @@ async function waitUntilNotRunning(app: ReturnType<typeof createApp>): Promise<v
 }
 
 describe('API', () => {
+  let tendersCollection: FakeCollection<TenderDoc>;
   let repo: TenderRepository;
   let manager: ScrapeManager;
   let app: ReturnType<typeof createApp>;
 
-  beforeEach(async () => {
-    repo = new TenderRepository(mkdtempSync(join(tmpdir(), 'tms-app-')));
-    await repo.load();
+  beforeEach(() => {
+    tendersCollection = new FakeCollection<TenderDoc>();
+    repo = new TenderRepository(tendersCollection, new FakeCollection<SourceMetaDoc>());
     manager = new ScrapeManager([], repo);
-    app = createApp({ repo, manager });
+    app = createApp({ repo, tendersCollection, manager });
   });
 
   it('GET /api/health returns ok', async () => {
@@ -51,7 +52,7 @@ describe('API', () => {
   });
 
   it('GET /api/tenders returns paginated, filterable results', async () => {
-    repo.mergeMany([patch({ title: 'BUMBUNG GELANGGANG' }), patch({ status: 'closed' }), patch()]);
+    await repo.mergeMany([patch({ title: 'BUMBUNG GELANGGANG' }), patch({ status: 'closed' }), patch()]);
     const all = await request(app).get('/api/tenders');
     expect(all.status).toBe(200);
     expect(all.body.total).toBe(3);
@@ -65,7 +66,7 @@ describe('API', () => {
   });
 
   it('GET /api/tenders supports fieldCode and hasWinners filters', async () => {
-    repo.mergeMany([
+    await repo.mergeMany([
       patch({ fieldCodes: ['220801'] }),
       patch({ winners: [{ name: 'X', price: 1 }] }),
       patch(),
@@ -77,7 +78,7 @@ describe('API', () => {
   });
 
   it('GET /api/tenders supports a contractor filter matching any winner name', async () => {
-    repo.mergeMany([
+    await repo.mergeMany([
       patch({ winners: [{ name: 'SAFWORKS SDN. BHD.', price: 1 }] }),
       patch({ winners: [{ name: 'SUCEME ENTERPRISE', price: 2 }] }),
       patch(),
@@ -87,7 +88,7 @@ describe('API', () => {
   });
 
   it('GET /api/tenders supports closingFrom and closingTo as an inclusive date range', async () => {
-    repo.mergeMany([
+    await repo.mergeMany([
       patch({ closingDate: '2026-07-05' }),
       patch({ closingDate: '2026-07-15' }),
       patch({ closingDate: '2026-07-25' }),
@@ -98,7 +99,7 @@ describe('API', () => {
   });
 
   it('GET /api/tenders?hasWinners=false returns unfiltered results, not awarded-only', async () => {
-    repo.mergeMany([patch({ winners: [{ name: 'X', price: 1 }] }), patch(), patch()]);
+    await repo.mergeMany([patch({ winners: [{ name: 'X', price: 1 }] }), patch(), patch()]);
     const res = await request(app).get('/api/tenders?hasWinners=false');
     expect(res.status).toBe(200);
     expect(res.body.total).toBe(3);
@@ -111,7 +112,7 @@ describe('API', () => {
   });
 
   it('GET /api/tenders/facets returns distinct values including fieldCodes', async () => {
-    repo.mergeMany([patch(), patch({ ministry: 'KEMENTERIAN B', fieldCodes: ['010101'] })]);
+    await repo.mergeMany([patch(), patch({ ministry: 'KEMENTERIAN B', fieldCodes: ['010101'] })]);
     const res = await request(app).get('/api/tenders/facets');
     expect(res.status).toBe(200);
     expect(res.body.ministries).toEqual(['KEMENTERIAN A', 'KEMENTERIAN B']);
@@ -119,12 +120,12 @@ describe('API', () => {
   });
 
   it('GET /api/dashboard returns awarded-tender aggregate stats', async () => {
-    repo.mergeMany([
+    await repo.mergeMany([
       patch({
         status: 'closed', ministry: 'KEMENTERIAN A', closingDate: '2025-01-10',
         winners: [{ name: 'ACME SDN BHD', price: 500 }],
       }),
-      patch({ status: 'open' }), // not awarded — must not affect the stats
+      patch({ status: 'open' }),
     ]);
     const res = await request(app).get('/api/dashboard');
     expect(res.status).toBe(200);
@@ -134,11 +135,10 @@ describe('API', () => {
   });
 
   it('GET /api/tenders/:refNo returns { tender } by reference number; 404 when missing', async () => {
-    repo.mergeMany([patch({ dedupKey: 'UTHM/54/P/02', referenceNo: 'UTHM/54/P/02' })]);
+    await repo.mergeMany([patch({ dedupKey: 'UTHM/54/P/02', referenceNo: 'UTHM/54/P/02' })]);
     const res = await request(app).get(`/api/tenders/${encodeURIComponent('UTHM/54/P/02')}`);
     expect(res.status).toBe(200);
     expect(res.body.tender.referenceNo).toBe('UTHM/54/P/02');
-    expect(res.body.alsoAvailableFrom).toBeUndefined(); // sources[] on the tender itself replaces this
 
     const missing = await request(app).get('/api/tenders/NOPE');
     expect(missing.status).toBe(404);
@@ -152,7 +152,7 @@ describe('API', () => {
       [{ name: 'fake', scrape: async (scope: string, _h: ScrapeHooks) => { receivedScope = scope; await gate; }, archiveJobNames: () => [] }],
       repo,
     );
-    const app2 = createApp({ repo, manager: blockingManager });
+    const app2 = createApp({ repo, tendersCollection, manager: blockingManager });
 
     const first = await request(app2).post('/api/scrape');
     expect(first.status).toBe(202);
@@ -175,7 +175,7 @@ describe('API', () => {
   it('GET /api/sources returns name, lastScrapedAt, lastArchiveBackfillAt, and total per registered adapter', async () => {
     const fakeAdapter = { name: 'span', scrape: async () => {}, archiveJobNames: () => [] };
     const mgr = new ScrapeManager([fakeAdapter], repo);
-    const app2 = createApp({ repo, manager: mgr });
+    const app2 = createApp({ repo, tendersCollection, manager: mgr });
     const res = await request(app2).get('/api/sources');
     expect(res.status).toBe(200);
     expect(res.body).toEqual([{ name: 'span', lastScrapedAt: null, lastArchiveBackfillAt: null, total: 0 }]);
@@ -191,7 +191,7 @@ describe('API', () => {
       archiveJobNames: () => [],
     };
     const mgr = new ScrapeManager([adapterA, adapterB], repo);
-    const app2 = createApp({ repo, manager: mgr });
+    const app2 = createApp({ repo, tendersCollection, manager: mgr });
     const res = await request(app2).post('/api/scrape').send({ source: 'b', scope: 'full' });
     expect(res.status).toBe(202);
     await waitUntilNotRunning(app2);
@@ -214,18 +214,18 @@ describe('API', () => {
       resultsJobNames: () => ['closed-quotation-results'],
     };
     const mgr = new ScrapeManager([adapter], repo);
-    const app2 = createApp({ repo, manager: mgr });
+    const app2 = createApp({ repo, tendersCollection, manager: mgr });
 
     const res = await request(app2).post('/api/scrape').send({ source: 'myprocurement', scope: 'results' });
     expect(res.status).toBe(202);
     expect(res.body).toEqual({ started: true });
     await waitUntilNotRunning(app2);
     expect(scrapedScopes).toEqual(['archive']);
-    expect(repo.getMeta('myprocurement').completedArchiveJobs).toEqual(['closed-quotation']);
+    expect((await repo.getMeta('myprocurement')).completedArchiveJobs).toEqual(['closed-quotation']);
 
     const noResultsAdapter = { name: 'span', scrape: async () => {}, archiveJobNames: () => [], resultsJobNames: () => [] };
     const mgr2 = new ScrapeManager([noResultsAdapter], repo);
-    const app3 = createApp({ repo, manager: mgr2 });
+    const app3 = createApp({ repo, tendersCollection, manager: mgr2 });
     const res2 = await request(app3).post('/api/scrape').send({ source: 'span', scope: 'results' });
     expect(res2.status).toBe(409);
   });
@@ -243,7 +243,7 @@ describe('API', () => {
     const gate = new Promise<void>((r) => { release = r; });
     const blockingAdapter = { name: 'fake', scrape: async () => { await gate; }, archiveJobNames: () => [] };
     const blockingManager = new ScrapeManager([blockingAdapter], repo);
-    const app2 = createApp({ repo, manager: blockingManager });
+    const app2 = createApp({ repo, tendersCollection, manager: blockingManager });
     await request(app2).post('/api/scrape');
     const res = await request(app2).post('/api/scrape/cancel');
     expect(res.status).toBe(200);

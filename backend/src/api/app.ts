@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { computeDedupKey } from '@tms/shared';
 import type { ScrapeManager } from '../scrape/manager.js';
 import type { TenderRepository } from '../storage/repository.js';
+import type { QueryableCollection, TenderDoc } from '../storage/tenderDoc.js';
 import { buildFacets, queryTenders } from '../query/tenders.js';
 import { buildDashboardStats } from '../query/dashboard.js';
 
@@ -30,43 +31,47 @@ const QuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).optional(),
 });
 
-export function createApp(deps: { repo: TenderRepository; manager: ScrapeManager }) {
+export function createApp(deps: {
+  repo: TenderRepository;
+  tendersCollection: QueryableCollection<TenderDoc>;
+  manager: ScrapeManager;
+}) {
   const app = express();
   app.use(express.json());
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-  app.get('/api/sources', (_req, res) => {
-    res.json(deps.manager.listSources());
+  app.get('/api/sources', async (_req, res) => {
+    res.json(await deps.manager.listSources());
   });
 
-  app.get('/api/tenders/facets', (_req, res) => {
-    res.json(buildFacets(deps.repo.getAll()));
+  app.get('/api/tenders/facets', async (_req, res) => {
+    res.json(await buildFacets(deps.tendersCollection));
   });
 
-  app.get('/api/dashboard', (_req, res) => {
-    res.json(buildDashboardStats(deps.repo.getAll()));
+  app.get('/api/dashboard', async (_req, res) => {
+    res.json(buildDashboardStats(await deps.repo.findAwarded()));
   });
 
-  app.get('/api/tenders/:refNo', (req, res) => {
+  app.get('/api/tenders/:refNo', async (req, res) => {
     const key = computeDedupKey(req.params.refNo, req.params.refNo);
-    const tender = deps.repo.findByDedupKey(key);
+    const tender = await deps.repo.findByDedupKey(key);
     if (!tender) return res.status(404).json({ error: 'tender not found' });
     res.json({ tender });
   });
 
-  app.get('/api/tenders', (req, res) => {
+  app.get('/api/tenders', async (req, res) => {
     const parsed = QuerySchema.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
-    res.json(queryTenders(deps.repo.getAll(), parsed.data));
+    res.json(await queryTenders(deps.tendersCollection, parsed.data));
   });
 
-  app.post('/api/scrape', (req, res) => {
+  app.post('/api/scrape', async (req, res) => {
     const parsed = ScrapeRequestSchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
     if (parsed.data.scope === 'results') {
       if (!parsed.data.source) return res.status(400).json({ error: 'source is required for scope=results' });
-      const started = deps.manager.refreshResults(parsed.data.source);
+      const started = await deps.manager.refreshResults(parsed.data.source);
       if (!started) return res.status(409).json({ error: 'cannot refresh results for this source' });
       return res.status(202).json({ started: true });
     }
