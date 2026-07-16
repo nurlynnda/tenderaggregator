@@ -143,16 +143,19 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
     setPage(1);
   };
 
+  const pageTitle = hasWinners ? 'Awarded Tenders' : status === 'open' ? 'Open Tenders' : 'Closed Tenders';
+  const pageDescription = hasWinners
+    ? 'Browse and filter tenders that have been awarded, including winning contractors and prices.'
+    : status === 'open'
+      ? 'Browse and filter tenders that are currently open for bidding.'
+      : 'Browse and filter tenders that have closed for bidding.';
+
   return (
     <div className="space-y-4">
-      {status === 'open' && (
-        <div>
-          <h1 className="text-lg font-semibold">Open Tenders</h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Browse and filter tenders that are currently open for bidding.
-          </p>
-        </div>
-      )}
+      <div>
+        <h1 className="text-lg font-semibold">{pageTitle}</h1>
+        <p className="text-xs text-gray-500 mt-1">{pageDescription}</p>
+      </div>
       <div data-testid="filter-card" className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-[10px] font-semibold text-gray-900">

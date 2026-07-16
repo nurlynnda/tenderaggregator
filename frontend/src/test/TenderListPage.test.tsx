@@ -344,17 +344,23 @@ describe('TenderListPage', () => {
     expect(within(row).getByText('—')).toBeInTheDocument();
   });
 
-  describe('page title (Open Tenders page)', () => {
+  describe('page title', () => {
     it('renders the page title and description for the open tenders page', async () => {
       renderList(<TenderListPage status="open" />);
       expect(await screen.findByRole('heading', { name: 'Open Tenders' })).toBeInTheDocument();
       expect(screen.getByText(/browse and filter/i)).toBeInTheDocument();
     });
 
-    it('does not render the page title on the closed/awarded tenders page', async () => {
+    it('renders the page title and description for the closed tenders page', async () => {
+      renderList(<TenderListPage status="closed" />);
+      expect(await screen.findByRole('heading', { name: 'Closed Tenders' })).toBeInTheDocument();
+      expect(screen.getByText(/browse and filter/i)).toBeInTheDocument();
+    });
+
+    it('renders the page title and description for the awarded tenders page', async () => {
       renderList(<TenderListPage status="closed" hasWinners />);
-      await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
-      expect(screen.queryByRole('heading', { name: 'Open Tenders' })).not.toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Awarded Tenders' })).toBeInTheDocument();
+      expect(screen.getByText(/browse and filter/i)).toBeInTheDocument();
     });
   });
 });

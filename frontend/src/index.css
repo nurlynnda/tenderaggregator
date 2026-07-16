@@ -3,7 +3,7 @@
 @theme {
   --font-sans: 'Roobert', 'Inter', system-ui, sans-serif;
   --text-lang: 0.8125rem; /* 13px */
-  --text-hero: 1rem; /* 16px mobile */
+  --text-hero: 0.875rem; /* 14px mobile */
 
   /* Primary colour override — shades of #03045e in place of Tailwind's default blue,
      tinted/shaded from the same navy hue so every existing blue-* class picks it up. */
@@ -26,7 +26,7 @@
   }
   @media (min-width: 768px) {
     .text-hero {
-      font-size: 1.125rem; /* 18px desktop */
+      font-size: 1rem; /* 16px desktop */
     }
   }
 
