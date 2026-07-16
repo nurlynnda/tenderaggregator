@@ -150,10 +150,11 @@ export class ScrapeManager {
         if (scope === 'all' || scope === 'archive') stamp.lastArchiveBackfillAt = now();
         await this.repo.setMeta(adapter.name, stamp);
       }
-      if (!this.cancelRequested) {
-        const staleCount = this.repo.reconcileStaleOpen(new Date(now()));
-        if (staleCount > 0) await this.repo.flush();
-      }
+      // Runs even when cancelled: an interrupted rescrape may have already re-merged
+      // "open" patches for tenders MyProcurement itself hasn't archived yet, and skipping
+      // this sweep would leave them incorrectly open until the next full run.
+      const staleCount = this.repo.reconcileStaleOpen(new Date(now()));
+      if (staleCount > 0) await this.repo.flush();
       this.current = this.cancelRequested ? { state: 'cancelled', source: activeSource } : { state: 'done' };
     } catch (err) {
       this.current = { state: 'failed', source: activeSource, error: err instanceof Error ? err.message : String(err) };

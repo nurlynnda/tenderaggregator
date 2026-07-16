@@ -264,6 +264,30 @@ describe('ScrapeManager', () => {
     expect(repo.getMeta('a').lastScrapedAt).toBeNull(); // not stamped, run didn't finish
   });
 
+  it('cancelled scrape still reconciles stale-open tenders (so an interrupted rescrape can\'t undo the daily close-out)', async () => {
+    const repo = await freshRepo();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const stalePatch: TenderPatch = { ...makePatch(1), closingDate: '2026-07-06' }; // cutoff is well before NOW
+    const adapterA: ScraperAdapter = {
+      name: 'a',
+      scrape: async (_s, hooks) => {
+        await hooks.onBatch([stalePatch]);
+        await gate; // block here until the test releases it
+      },
+      archiveJobNames: () => [],
+    };
+    const adapterB: ScraperAdapter = { name: 'b', scrape: async () => { throw new Error('b should never run'); }, archiveJobNames: () => [] };
+    const mgr = new ScrapeManager([adapterA, adapterB], repo, { now: NOW, flushEveryPages: 1 });
+    mgr.start('open');
+    await waitUntil(() => mgr.status().state === 'running');
+    expect(mgr.cancel()).toBe(true);
+    release();
+    await waitUntil(() => mgr.status().state !== 'running');
+    expect(mgr.status().state).toBe('cancelled');
+    expect(repo.getAll()[0]!.status).toBe('closed');
+  });
+
   it('cancel() returns false when nothing is running', async () => {
     const repo = await freshRepo();
     const mgr = new ScrapeManager([], repo, { now: NOW });
