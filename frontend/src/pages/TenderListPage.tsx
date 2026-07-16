@@ -6,7 +6,7 @@ import { fetchFacets, fetchTenders } from '../api/client';
 import Badge from '../components/Badge';
 import DaysLeftBadge from '../components/DaysLeftBadge';
 import FieldCodeFilter from '../components/FieldCodeFilter';
-import { formatDate } from '../lib/format';
+import { formatDate, formatSourceLabel, titleCase } from '../lib/format';
 
 type SortBy = 'advertisedDate' | 'closingDate' | 'indicativePrice';
 
@@ -17,6 +17,29 @@ const FILTERS = [
   { key: 'source', label: 'Source', facet: 'sources' },
   { key: 'procurementType', label: 'Type', facet: 'procurementTypes' },
 ] as const;
+
+function FiltersIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path d="M4 6h6M16 6h4M4 12h10M18 12h2M4 18h4M10 18h10" strokeLinecap="round" />
+      <circle cx="12" cy="6" r="2" fill="currentColor" stroke="none" />
+      <circle cx="14" cy="12" r="2" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="18" r="2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4 shrink-0 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.35-4.35" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const filterLabelClass = 'text-[10px] font-semibold text-gray-800';
+const filterInputClass = 'border border-gray-300 rounded-lg px-3 py-2 text-[10px] w-full';
 
 function formatContractors(winners: Tender['winners']): string {
   if (!winners || winners.length === 0) return '—';
@@ -108,6 +131,18 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
   const sortIndicator = (col: SortBy) => (sortBy === col ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : '');
   const totalPages = pageData ? Math.max(1, Math.ceil(pageData.total / pageData.pageSize)) : 1;
 
+  const clearAll = () => {
+    setSearchInput('');
+    setSearch('');
+    setContractorInput('');
+    setContractor('');
+    setFilters({});
+    setFieldCode('');
+    setClosingFrom('');
+    setClosingTo('');
+    setPage(1);
+  };
+
   return (
     <div className="space-y-4">
       {status === 'open' && (
@@ -119,34 +154,50 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
         </div>
       )}
       <div data-testid="filter-card" className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4">
-        <div className="flex flex-wrap gap-3 items-end">
-          <input
-            type="search"
-            placeholder="Search title or reference no…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="border border-[#e0e0e0] rounded-md px-3 py-2 w-72 text-[10px]"
-          />
-          {hasWinners && (
-            <label className="flex flex-col text-[10px] gap-1">
-              Contractor
-              <input
-                type="text"
-                placeholder="Search contractor…"
-                className="border border-[#e0e0e0] rounded-md px-2 py-2 w-40 text-[10px]"
-                value={contractorInput}
-                onChange={(e) => setContractorInput(e.target.value)}
-              />
-            </label>
-          )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[10px] font-semibold text-gray-900">
+            <FiltersIcon />
+            Filters
+          </div>
+          <button type="button" onClick={clearAll} className="text-[10px] font-medium text-blue-700 hover:underline">
+            Clear all
+          </button>
         </div>
 
-        <div className="flex flex-wrap gap-3 items-end">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <label className={`flex flex-col ${filterLabelClass} gap-1`}>
+            Title or Reference No.
+            <div className="relative">
+              <SearchIcon />
+              <input
+                type="search"
+                placeholder="Search title or reference no…"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className={`${filterInputClass} pl-8`}
+              />
+            </div>
+          </label>
+          {hasWinners && (
+            <label className={`flex flex-col ${filterLabelClass} gap-1`}>
+              Contractor
+              <div className="relative">
+                <SearchIcon />
+                <input
+                  type="text"
+                  placeholder="Search contractor…"
+                  className={`${filterInputClass} pl-8`}
+                  value={contractorInput}
+                  onChange={(e) => setContractorInput(e.target.value)}
+                />
+              </div>
+            </label>
+          )}
           {FILTERS.map((f) => (
-            <label key={f.key} className="flex flex-col text-[10px] gap-1">
+            <label key={f.key} className={`flex flex-col ${filterLabelClass} gap-1`}>
               {f.label}
               <select
-                className="border border-[#e0e0e0] rounded-md px-2 py-2 w-40 truncate text-[10px]"
+                className={`${filterInputClass} truncate`}
                 title={filters[f.key] || undefined}
                 value={filters[f.key] ?? ''}
                 onChange={(e) => {
@@ -155,25 +206,29 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
                 }}
               >
                 <option value="">All</option>
-                {(facets?.[f.facet] ?? []).map((v) => <option key={v} value={v}>{v}</option>)}
+                {(facets?.[f.facet] ?? []).map((v) => (
+                  <option key={v} value={v}>
+                    {f.key === 'source' ? formatSourceLabel(v) : f.key === 'procurementType' ? titleCase(v) : v}
+                  </option>
+                ))}
               </select>
             </label>
           ))}
           <FieldCodeFilter value={fieldCode} onChange={(c) => { setFieldCode(c); setPage(1); }} />
-          <label className="flex flex-col text-[10px] gap-1">
-            Closing from
+          <label className={`flex flex-col ${filterLabelClass} gap-1`}>
+            Closing From
             <input
               type="date"
-              className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
+              className={filterInputClass}
               value={closingFrom}
               onChange={(e) => { setClosingFrom(e.target.value); setPage(1); }}
             />
           </label>
-          <label className="flex flex-col text-[10px] gap-1">
-            Closing to
+          <label className={`flex flex-col ${filterLabelClass} gap-1`}>
+            Closing To
             <input
               type="date"
-              className="border border-[#e0e0e0] rounded-md px-2 py-2 text-[10px]"
+              className={filterInputClass}
               value={closingTo}
               onChange={(e) => { setClosingTo(e.target.value); setPage(1); }}
             />
@@ -183,7 +238,7 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
 
       <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white shadow-sm">
         <table className="data-table w-full text-[10px]">
-          <thead className="bg-gray-100 text-left sticky top-0 z-10">
+          <thead className="bg-[#F3F2ED] text-[#1B1A18] text-left sticky top-0 z-10">
             <tr>
               <th className="px-3 py-3 uppercase tracking-wide w-full">Title</th>
               <th className="px-3 py-3 uppercase tracking-wide">Reference No</th>
@@ -215,7 +270,7 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
                 </td>
                 {!hasWinners && (
                   <td className="px-3 py-3">
-                    {t.procurementType === null ? '—' : <Badge label={t.procurementType} />}
+                    {t.procurementType === null ? '—' : <Badge label={titleCase(t.procurementType)} colorKey={t.procurementType} />}
                   </td>
                 )}
                 <td className="px-3 py-3 whitespace-nowrap">
@@ -231,7 +286,7 @@ export default function TenderListPage({ status, hasWinners = false }: Props) {
                 </td>
                 <td className="px-3 py-3 whitespace-nowrap">
                   <div className="flex gap-1">
-                    {t.sources.map((s) => <Badge key={s.source} label={s.source} />)}
+                    {t.sources.map((s) => <Badge key={s.source} label={formatSourceLabel(s.source)} colorKey={s.source} />)}
                   </div>
                 </td>
                 {hasWinners && <td className="px-3 py-3">{formatContractors(t.winners)}</td>}

@@ -4,6 +4,14 @@
   --font-sans: 'Roobert', 'Inter', system-ui, sans-serif;
   --text-lang: 0.8125rem; /* 13px */
   --text-hero: 1rem; /* 16px mobile */
+
+  /* Primary colour override — shades of #03045e in place of Tailwind's default blue,
+     tinted/shaded from the same navy hue so every existing blue-* class picks it up. */
+  --color-blue-50: #e6e6ef;
+  --color-blue-100: #c0c0d7;
+  --color-blue-700: #4f4f8e;
+  --color-blue-800: #292a76;
+  --color-blue-900: #03045e;
 }
 
 @layer base {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCount, formatDate, formatMYR } from '../lib/format';
+import { formatCount, formatDate, formatMYR, formatSourceLabel, titleCase } from '../lib/format';
 
 describe('formatMYR', () => {
   it('formats a number with thousands separators and 2 decimal places, RM-prefixed', () => {
@@ -44,5 +44,31 @@ describe('formatDate', () => {
 
   it('returns a non-ISO-date string unchanged', () => {
     expect(formatDate('not a date')).toBe('not a date');
+  });
+});
+
+describe('formatSourceLabel', () => {
+  it('uppercases acronym source names', () => {
+    expect(formatSourceLabel('llm')).toBe('LLM');
+    expect(formatSourceLabel('span')).toBe('SPAN');
+    expect(formatSourceLabel('kwsp')).toBe('KWSP');
+  });
+
+  it('leaves other source names unchanged', () => {
+    expect(formatSourceLabel('myprocurement')).toBe('myprocurement');
+  });
+});
+
+describe('titleCase', () => {
+  it('capitalizes a single lowercase word', () => {
+    expect(titleCase('quotation')).toBe('Quotation');
+  });
+
+  it('capitalizes each word of a multi-word string', () => {
+    expect(titleCase('d left')).toBe('D Left');
+  });
+
+  it('leaves already-capitalized words unchanged', () => {
+    expect(titleCase('Tender')).toBe('Tender');
   });
 });

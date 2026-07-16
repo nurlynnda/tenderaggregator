@@ -48,7 +48,7 @@ describe('TenderListPage', () => {
   it('shows the Type value as a colored badge', async () => {
     renderList(<TenderListPage status="open" />);
     const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
-    expect(within(row).getByText('quotation')).toHaveClass('bg-blue-100');
+    expect(within(row).getByText('Quotation')).toHaveClass('bg-orange-100');
   });
 
   it('shows a days-left indicator next to the closing date', async () => {
@@ -77,6 +77,30 @@ describe('TenderListPage', () => {
     expect(card).toContainElement(screen.getByLabelText(/ministry/i));
   });
 
+  it('shows a "Filters" heading with an icon, and a "Clear all" button in the filter card', async () => {
+    renderList(<TenderListPage status="open" />);
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+    const card = screen.getByTestId('filter-card');
+    const heading = within(card).getByText('Filters');
+    expect(heading.parentElement?.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: /clear all/i })).toBeInTheDocument();
+  });
+
+  it('resets all filters when "Clear all" is clicked', async () => {
+    renderList(<TenderListPage status="open" />);
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+
+    await userEvent.type(screen.getByPlaceholderText(/search/i), 'makmal');
+    await userEvent.selectOptions(screen.getByLabelText(/ministry/i), 'KEMENTERIAN PENDIDIKAN TINGGI');
+    fireEvent.change(screen.getByLabelText(/closing from/i), { target: { value: '2026-07-10' } });
+
+    await userEvent.click(screen.getByRole('button', { name: /clear all/i }));
+
+    expect(screen.getByPlaceholderText(/search/i)).toHaveValue('');
+    expect(screen.getByLabelText(/ministry/i)).toHaveValue('');
+    expect(screen.getByLabelText(/closing from/i)).toHaveValue('');
+  });
+
   it('does not render an Actions column, and clicking a row still navigates to its detail page', async () => {
     renderList(<TenderListPage status="open" />);
     const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
@@ -103,7 +127,7 @@ describe('TenderListPage', () => {
     renderList(<TenderListPage status="open" />);
     const row = (await screen.findByText('MENYELENGGARA PERALATAN MAKMAL')).closest('tr')!;
     expect(within(row).getByText('myprocurement')).toBeInTheDocument();
-    expect(within(row).getByText('span')).toBeInTheDocument();
+    expect(within(row).getByText('SPAN')).toBeInTheDocument();
   });
 
   it('sends status as a fixed param, not a user-facing filter', async () => {

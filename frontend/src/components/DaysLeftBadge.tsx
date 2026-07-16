@@ -18,10 +18,10 @@ export default function DaysLeftBadge({ closingDate }: Props) {
     label = 'Today';
   } else if (days <= 7) {
     color = 'bg-orange-100 text-orange-700';
-    label = `${days}d left`;
+    label = `${days}d Left`;
   } else {
     color = 'bg-green-100 text-green-700';
-    label = `${days}d left`;
+    label = `${days}d Left`;
   }
 
   return (

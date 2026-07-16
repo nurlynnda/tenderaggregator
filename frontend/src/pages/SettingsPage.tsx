@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cancelScrape, fetchScrapeStatus, fetchSources, triggerScrape } from '../api/client';
+import { formatSourceLabel } from '../lib/format';
 
 // Sources whose winner/award data comes from a separate "results" job that can be refreshed
 // on its own — see docs/superpowers/specs/2026-07-14-refresh-awarded-results-design.md.
@@ -41,7 +42,7 @@ export default function SettingsPage() {
             return (
               <div key={s.name} role="group" aria-label={s.name} className="p-4 flex items-center justify-between gap-4">
                 <div>
-                  <div className="font-medium capitalize">{s.name}</div>
+                  <div className="font-medium capitalize">{formatSourceLabel(s.name)}</div>
                   <div className="text-xs text-gray-500">
                     Last fetched: {s.lastScrapedAt ?? 'never'} · Full backfill: {s.lastArchiveBackfillAt ?? 'never'} · {s.total} tenders
                   </div>

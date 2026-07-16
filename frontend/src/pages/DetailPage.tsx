@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchTender } from '../api/client';
 import type { Tender } from '../api/types';
-import { formatDate } from '../lib/format';
+import { formatDate, formatSourceLabel } from '../lib/format';
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -74,7 +74,7 @@ export default function DetailPage() {
         <div>
           <h2 className="font-semibold mb-2">Events</h2>
           <table className="data-table w-full border border-[#e0e0e0] rounded-lg">
-            <thead className="bg-gray-100 text-left">
+            <thead className="bg-[#F3F2ED] text-[#1B1A18] text-left">
               <tr>
                 <th className="px-3 py-2 uppercase tracking-wide">Event</th>
                 <th className="px-3 py-2 uppercase tracking-wide">Date</th>
@@ -100,7 +100,7 @@ export default function DetailPage() {
           <ul className="list-disc pl-6">
             {t.sources.map((s) => (
               <li key={s.source}>
-                <a href={s.sourceUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">{s.source}</a>
+                <a href={s.sourceUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">{formatSourceLabel(s.source)}</a>
               </li>
             ))}
           </ul>

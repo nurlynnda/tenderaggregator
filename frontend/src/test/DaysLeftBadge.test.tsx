@@ -30,17 +30,17 @@ describe('DaysLeftBadge', () => {
     expect(el).toHaveClass('bg-red-100');
   });
 
-  it('shows orange "Nd left" when closing within 7 days', () => {
+  it('shows orange "Nd Left" when closing within 7 days', () => {
     render(<DaysLeftBadge closingDate="2026-07-18" />);
     const el = screen.getByTestId('days-left');
-    expect(el).toHaveTextContent('5d left');
+    expect(el).toHaveTextContent('5d Left');
     expect(el).toHaveClass('bg-orange-100');
   });
 
-  it('shows green "Nd left" when closing more than 7 days out', () => {
+  it('shows green "Nd Left" when closing more than 7 days out', () => {
     render(<DaysLeftBadge closingDate="2026-08-01" />);
     const el = screen.getByTestId('days-left');
-    expect(el).toHaveTextContent('19d left');
+    expect(el).toHaveTextContent('19d Left');
     expect(el).toHaveClass('bg-green-100');
   });
 });

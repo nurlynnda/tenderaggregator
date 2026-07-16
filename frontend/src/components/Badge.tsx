@@ -4,8 +4,8 @@ interface Props {
 }
 
 const COLOR_MAP: Record<string, string> = {
-  quotation: 'bg-blue-100 text-blue-700',
-  tender: 'bg-purple-100 text-purple-700',
+  quotation: 'bg-orange-100 text-orange-700',
+  tender: 'bg-sky-100 text-sky-700',
   myprocurement: 'bg-teal-100 text-teal-700',
   span: 'bg-indigo-100 text-indigo-700',
   kwsp: 'bg-amber-100 text-amber-700',

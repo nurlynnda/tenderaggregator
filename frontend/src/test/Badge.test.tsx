@@ -10,7 +10,7 @@ describe('Badge', () => {
 
   it('applies a known color for a recognized colorKey (case-insensitive)', () => {
     render(<Badge label="Quotation" colorKey="Quotation" />);
-    expect(screen.getByText('Quotation')).toHaveClass('bg-blue-100');
+    expect(screen.getByText('Quotation')).toHaveClass('bg-orange-100');
   });
 
   it('falls back to a neutral gray style for an unrecognized colorKey', () => {
