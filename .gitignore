@@ -4,3 +4,5 @@ coverage/
 backend/data/
 *.tsbuildinfo
 .env
+.playwright-mcp/
+snap2.yml

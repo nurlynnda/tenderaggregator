@@ -52,22 +52,14 @@ export default function AboutPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-semibold mb-1">How it works</h2>
-        <p className="text-sm text-gray-600">
-          Data is fetched directly from each source's public listings on a regular schedule, and
-          the same tender appearing in more than one source is de-duplicated by its reference
-          number. Nothing here is entered or edited by hand — this site only mirrors what each
-          source has already published.
-        </p>
-      </section>
-
-      <section className="space-y-2">
         <h2 className="font-semibold mb-1">Disclaimer</h2>
         <p className="text-sm text-gray-600">
-          This is not an official government service and is not affiliated with the Ministry of
-          Finance, SPAN, KWSP, or any other government body. It only re-publishes information that
-          is already public. Always verify tender details, deadlines, and requirements on the
-          original source before submitting a bid.
+          Malaysia Tender Aggregator is an independent, non-profit project — it is not an official
+          government service and is not affiliated with the Ministry of Finance, SPAN, KWSP, or
+          any other government body. Because the data is pulled from third-party sources, it may
+          occasionally be incomplete or out of date. Always cross-check tender details, deadlines,
+          and requirements against the official Ministry of Finance documents before relying on
+          them or submitting a bid.
         </p>
       </section>
     </div>
