@@ -5,6 +5,7 @@ import { parseDottedDate, parseIsoDatePrefix } from '../../parsing/text.js';
 export interface LlmDetailContext {
   sourceId: string;
   sourceUrl: string;
+  status: 'open' | 'closed';
   now?: () => string;
 }
 
@@ -39,7 +40,7 @@ export function parseLlmDetailHtml(html: string, ctx: LlmDetailContext): TenderP
     dedupKey: computeDedupKey(referenceNo, fallback),
     referenceNo,
     title,
-    status: 'open' as const,
+    status: ctx.status,
     procurementType,
     scrapedAt: now(),
     source: { source: SOURCE, sourceId: ctx.sourceId, sourceUrl: ctx.sourceUrl },
@@ -60,7 +61,10 @@ export function parseLlmDetailHtml(html: string, ctx: LlmDetailContext): TenderP
 }
 
 function extractReferenceNo(title: string): string {
-  const m = title.match(/NO\.?\s*SEBUT\s*HARGA:?\s*([^)]+)/i);
+  // Reference codes (e.g. "LLM/KEW/SH:9/6/2026") never contain whitespace, so capturing a single
+  // contiguous token stops cleanly before the trailing description — regardless of whether that
+  // description is separated by ")", " - ", or nothing at all (all three occur in real titles).
+  const m = title.match(/NO\.?\s*SEBUT\s*HARGA:?\s*([^\s)]+)/i);
   return m ? clean(m[1]!) : '';
 }
 

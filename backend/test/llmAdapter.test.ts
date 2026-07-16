@@ -25,18 +25,24 @@ function detailPage(id: number): string {
   </div></div>`;
 }
 
-describe('LlmAdapter — job model', () => {
-  it('has no archive/results job names — this source only ever has an open listing', () => {
-    const adapter = new LlmAdapter(vi.fn(), NOW);
-    expect(adapter.archiveJobNames()).toEqual([]);
-    expect(adapter.resultsJobNames()).toEqual([]);
-  });
+function resultsPage(rows: Array<{ id: number; contractor: string; nilai: string }>): string {
+  const trs = rows
+    .map(
+      (r) => `<tr>
+        <td><a href="https://www.llm.gov.my/swasta/tender_detail/${r.id}#tender-table-head"><header>TITLE ${r.id}</header></a></td>
+        <td style="font-weight: bold;">${r.contractor}</td>
+        <td style="font-weight: bold;">${r.nilai}</td>
+      </tr>`,
+    )
+    .join('');
+  return `<div id="tender-table-head"><table><tbody>${trs}</tbody></table></div>`;
+}
 
-  it('scope=archive is a no-op — never fetches anything', async () => {
-    const fetcher = vi.fn();
-    const adapter = new LlmAdapter(fetcher, NOW);
-    await adapter.scrape('archive', { onProgress: () => {}, onBatch: async () => {} });
-    expect(fetcher).not.toHaveBeenCalled();
+describe('LlmAdapter — job model', () => {
+  it('reports "closed" as both its archive job and its results job — Keputusan carries award data', () => {
+    const adapter = new LlmAdapter(vi.fn(), NOW);
+    expect(adapter.archiveJobNames()).toEqual(['closed']);
+    expect(adapter.resultsJobNames()).toEqual(['closed']);
   });
 
   it('paginates the listing by offsets of 6 until a page comes back with zero tenders', async () => {
@@ -78,15 +84,97 @@ describe('LlmAdapter — job model', () => {
     expect(batches[0]![0]!.status).toBe('open');
   });
 
-  it('treats scope=all the same as scope=open (there is no archive job to add)', async () => {
+  it('scope=all runs both the open listing job and the closed/results job', async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url === 'https://www.llm.gov.my/swasta/tender_tawaran/') return listingPage([1]);
+      if (url === 'https://www.llm.gov.my/swasta/tender_tawaran/6') return listingPage([]);
+      if (url === 'https://www.llm.gov.my/swasta/tender_keputusan/') {
+        return resultsPage([{ id: 2, contractor: 'ACME SDN BHD', nilai: 'RM 100.00' }]);
+      }
+      if (url === 'https://www.llm.gov.my/swasta/tender_keputusan/6') return resultsPage([]);
+      return detailPage(Number(url.match(/tender_detail\/(\d+)/)![1]));
+    });
+    const adapter = new LlmAdapter(fetcher, NOW);
+    const batches: TenderPatch[][] = [];
+    const done: string[] = [];
+    await adapter.scrape('all', {
+      onProgress: () => {},
+      onBatch: async (t) => { batches.push(t); },
+      onJobDone: (name) => done.push(name),
+    });
+    expect(done).toEqual(['open', 'closed']);
+    expect(batches).toHaveLength(2);
+    expect(batches[0]![0]!.status).toBe('open');
+    expect(batches[1]![0]!.status).toBe('closed');
+    expect(batches[1]![0]!.winners).toEqual([{ name: 'ACME SDN BHD', price: 100 }]);
+  });
+
+  it('scope=open never fetches the closed/results listing', async () => {
     const fetcher = vi.fn(async (url: string) => {
       if (url.endsWith('/tender_tawaran/')) return listingPage([1]);
       return detailPage(1);
     });
     const adapter = new LlmAdapter(fetcher, NOW);
+    await adapter.scrape('open', { onProgress: () => {}, onBatch: async () => {} });
+    expect(fetcher).not.toHaveBeenCalledWith(expect.stringContaining('tender_keputusan'));
+  });
+
+  it('scope=archive fetches only the closed/results listing, marking tenders closed with their winner', async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith('/tender_keputusan/')) {
+        return resultsPage([{ id: 5, contractor: 'BETA SDN BHD', nilai: 'RM 999.50' }]);
+      }
+      if (url.match(/tender_keputusan\/\d+$/)) return resultsPage([]);
+      return detailPage(5);
+    });
+    const adapter = new LlmAdapter(fetcher, NOW);
     const batches: TenderPatch[][] = [];
-    await adapter.scrape('all', { onProgress: () => {}, onBatch: async (t) => { batches.push(t); } });
+    await adapter.scrape('archive', { onProgress: () => {}, onBatch: async (t) => { batches.push(t); } });
+
+    expect(fetcher).not.toHaveBeenCalledWith(expect.stringContaining('tender_tawaran'));
     expect(batches).toHaveLength(1);
+    expect(batches[0]![0]!.status).toBe('closed');
+    expect(batches[0]![0]!.winners).toEqual([{ name: 'BETA SDN BHD', price: 999.5 }]);
+  });
+
+  it('never requests a second page of the closed/results listing — llm.gov.my 404s its own offset pagination there', async () => {
+    const urls: string[] = [];
+    const fetcher = vi.fn(async (url: string) => {
+      urls.push(url);
+      if (url.endsWith('/tender_keputusan/')) {
+        return resultsPage([{ id: 5, contractor: 'BETA SDN BHD', nilai: 'RM 999.50' }]);
+      }
+      return detailPage(5);
+    });
+    const adapter = new LlmAdapter(fetcher, NOW);
+    await adapter.scrape('archive', { onProgress: () => {}, onBatch: async () => {} });
+
+    expect(urls).toContain('https://www.llm.gov.my/swasta/tender_keputusan/');
+    expect(urls).not.toContain('https://www.llm.gov.my/swasta/tender_keputusan/6');
+  });
+
+  it('records winners: null for a closed tender whose results row has no contractor yet', async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith('/tender_keputusan/')) return resultsPage([{ id: 5, contractor: '', nilai: '' }]);
+      if (url.match(/tender_keputusan\/\d+$/)) return resultsPage([]);
+      return detailPage(5);
+    });
+    const adapter = new LlmAdapter(fetcher, NOW);
+    const batches: TenderPatch[][] = [];
+    await adapter.scrape('archive', { onProgress: () => {}, onBatch: async (t) => { batches.push(t); } });
+    expect(batches[0]![0]!.winners).toBeNull();
+  });
+
+  it('skips the closed job entirely when it is already in skipJobNames', async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith('/tender_tawaran/')) return listingPage([1]);
+      return detailPage(1);
+    });
+    const adapter = new LlmAdapter(fetcher, NOW);
+    await adapter.scrape('all', { onProgress: () => {}, onBatch: async () => {} }, {
+      skipJobNames: new Set(['closed']),
+    });
+    expect(fetcher).not.toHaveBeenCalledWith(expect.stringContaining('tender_keputusan'));
   });
 
   it('rejects when the listing fetcher fails, without calling onBatch', async () => {

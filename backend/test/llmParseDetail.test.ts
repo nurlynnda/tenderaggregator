@@ -43,7 +43,12 @@ function detailHtml(opts: {
 }
 
 describe('parseLlmDetailHtml — embedded page, exact values', () => {
-  const ctx = { sourceId: '12543', sourceUrl: 'https://www.llm.gov.my/swasta/tender_detail/12543/', now: NOW };
+  const ctx = {
+    sourceId: '12543',
+    sourceUrl: 'https://www.llm.gov.my/swasta/tender_detail/12543/',
+    status: 'open' as const,
+    now: NOW,
+  };
 
   it('extracts every field from a detail page, shaped as a TenderPatch', () => {
     const html = detailHtml({ title: 'TAWARAN REQUEST FOR PROPOSAL (RFP) BAGI CADANGAN' });
@@ -74,6 +79,25 @@ describe('parseLlmDetailHtml — embedded page, exact values', () => {
     expect(t!.referenceNo).toBe('LLM/KEW/SH:9/6/2026');
     expect(t!.dedupKey).toBe('LLM/KEW/SH:9/6/2026');
     expect(t!.procurementType).toBe('quotation');
+  });
+
+  it('extracts a reference number that is not wrapped in parentheses, stopping before the trailing description', () => {
+    // Real title from llm.gov.my/swasta/tender_keputusan (2026-07-16) — unlike the open-tender
+    // listing's "(NO. SEBUT HARGA: X) - Y" convention, some closed/results titles omit the parens.
+    const html = detailHtml({
+      title: 'NO. SEBUT HARGA: LLM/KEW/SH:4/4/2026 - PERKHIDMATAN MEREKA BENTUK, MENTERJEMAH, MENCETAK DAN MEMBEKAL BUKU',
+    });
+    const t = parseLlmDetailHtml(html, ctx);
+    expect(t!.referenceNo).toBe('LLM/KEW/SH:4/4/2026');
+  });
+
+  it('extracts a reference number with no separator at all before the trailing description', () => {
+    // Also real: no "-" separator, just a space before the free-text description resumes.
+    const html = detailHtml({
+      title: 'NO. SEBUT HARGA: LLM/KEW/SH:3/2/2026 SEBUT HARGA PERKHIDMATAN PEMULIHAN BENCANA',
+    });
+    const t = parseLlmDetailHtml(html, ctx);
+    expect(t!.referenceNo).toBe('LLM/KEW/SH:3/2/2026');
   });
 
   it('falls back dedupKey to source:sourceId when the title has no reference number', () => {
@@ -134,6 +158,12 @@ describe('parseLlmDetailHtml — embedded page, exact values', () => {
     const html = detailHtml({ title: '' });
     expect(parseLlmDetailHtml(html, ctx)).toBeNull();
   });
+
+  it('honors ctx.status — used for tenders discovered via the closed/results listing', () => {
+    const html = detailHtml({ title: 'T' });
+    const t = parseLlmDetailHtml(html, { ...ctx, status: 'closed' });
+    expect(t!.status).toBe('closed');
+  });
 });
 
 describe('extractFieldCodes — unit', () => {
@@ -154,6 +184,7 @@ describe('parseLlmDetailHtml — live fixture, structural invariants', () => {
     const t = parseLlmDetailHtml(html, {
       sourceId: '12540',
       sourceUrl: 'https://www.llm.gov.my/swasta/tender_detail/12540/',
+      status: 'open',
       now: NOW,
     });
     expect(t).toBeDefined();

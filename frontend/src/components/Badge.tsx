@@ -9,6 +9,7 @@ const COLOR_MAP: Record<string, string> = {
   myprocurement: 'bg-teal-100 text-teal-700',
   span: 'bg-indigo-100 text-indigo-700',
   kwsp: 'bg-amber-100 text-amber-700',
+  llm: 'bg-rose-100 text-rose-700',
 };
 const NEUTRAL = 'bg-gray-100 text-gray-700';
 

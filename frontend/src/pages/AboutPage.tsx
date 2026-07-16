@@ -17,6 +17,12 @@ const SOURCES = [
     description:
       'Kumpulan Wang Simpanan Pekerja (Employees Provident Fund) — procurement and tender notices published by KWSP.',
   },
+  {
+    name: 'LLM',
+    url: 'https://www.llm.gov.my/swasta/tender_tawaran',
+    description:
+      'Lembaga Lebuhraya Malaysia (Malaysian Highway Authority) — tenders and quotations for highway construction, maintenance, and related services, plus awarded results.',
+  },
 ];
 
 export default function AboutPage() {
