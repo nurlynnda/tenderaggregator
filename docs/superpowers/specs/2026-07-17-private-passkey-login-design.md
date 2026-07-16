@@ -36,6 +36,13 @@ passkey to challenge).
   as a discoverable-credential/usernameless flow, changed during review.) Because of
   this, passkeys registered here do **not** need to be resident/discoverable
   credentials.
+- **RBAC: two roles, `admin` and `member`.** The rescrape functionality (starting or
+  cancelling a scrape) is the only thing gated by role — everything else any logged-in
+  user can see. The first admin is bootstrapped without any manual DB edit: whoever
+  registers using the `ADMIN_EMAIL` address becomes `admin` automatically; everyone
+  else becomes `member`. Existing admins can later promote/demote other members
+  through a small admin-only screen, with a safety rail preventing the last remaining
+  admin from being demoted.
 
 ## Architecture & data model
 
@@ -45,8 +52,9 @@ New `backend/src/auth/` module. Three new Mongo collections:
   `_id` is a random, unguessable token — this is the value stored (signed) in the
   registrant's httpOnly cookie, so only that browser can advance this specific pending
   registration. TTL-indexed on `expiresAt` for automatic cleanup; no cron needed.
-- **`users`**: `{ _id, name, email, credential: { id, publicKey, counter, transports }, createdAt }`.
-  Exactly one `credential` per user.
+- **`users`**: `{ _id, name, email, role: 'admin' | 'member', credential: { id, publicKey, counter, transports }, createdAt }`.
+  Exactly one `credential` per user. `email` has a unique index (one account per
+  email).
 - **`sessions`**: `{ _id, userId, createdAt, expiresAt }`. TTL-indexed on `expiresAt`;
   sliding expiry (refreshed on use), e.g. 30 days.
 
@@ -86,8 +94,9 @@ New env vars, following the existing `MONGO_URI` pattern in `docker-compose.yml`
    Verifies the attestation response against the stored challenge. Only on success
    does it create the `users` document (with the new credential) and delete the
    pending registration — so a failed or abandoned passkey ceremony never leaves a
-   half-created account. Immediately creates a session and sets the session cookie
-   (auto-login after registering).
+   half-created account. `role` is set here: `admin` if the pending registration's
+   email matches `ADMIN_EMAIL` (case-insensitive), otherwise `member`. Immediately
+   creates a session and sets the session cookie (auto-login after registering).
 
 ## Login flow
 
@@ -108,7 +117,28 @@ New env vars, following the existing `MONGO_URI` pattern in `docker-compose.yml`
 An Express `requireAuth` middleware validates the session cookie against `sessions`
 and wraps every route except `/api/auth/*`. On the frontend, a router guard calls
 `GET /api/auth/me` on load; a `401` from that or any other API call redirects to
-`/login`.
+`/login`. `GET /api/auth/me` returns `{ name, email, role }` so the frontend knows
+whether to show admin-only UI.
+
+## RBAC (roles & rescrape gating)
+
+Two roles: `admin` and `member`. Rescrape is the only functionality gated by role —
+every other authenticated route is open to any logged-in user.
+
+- `POST /api/scrape` and `POST /api/scrape/cancel` are wrapped in a `requireAdmin`
+  middleware (stacks on top of `requireAuth`; checks `role === 'admin'`, else `403`).
+  `GET /api/scrape/status` stays open to all logged-in users (read-only, not
+  sensitive).
+- `GET /api/admin/users` — admin-only. Lists all accounts: `name`, `email`, `role`,
+  `createdAt`.
+- `PATCH /api/admin/users/:id/role { role }` — admin-only. Changes a user's role.
+  Rejects (`409`) any change that would leave zero `admin` users in the system, so an
+  admin can never accidentally demote the last admin (including themselves) and lock
+  everyone out of the rescrape function and the admin screen itself.
+- Frontend: `/admin/users` is an admin-only route (redirects non-admins away); it
+  lists accounts with a role toggle calling the endpoint above. The rescrape button
+  elsewhere in the UI is hidden/disabled for `member` accounts based on the `role`
+  from `GET /api/auth/me`.
 
 ## Error handling & security
 
@@ -121,6 +151,8 @@ and wraps every route except `/api/auth/*`. On the frontend, a router guard call
 - Login with an unrecognized email or a credential mismatch → generic `401`, no
   distinction in the response between "no such email" and "wrong passkey".
 - Session expiry → sliding TTL via Mongo TTL index on `sessions.expiresAt`.
+- Non-admin hitting a `requireAdmin` route (rescrape, `/api/admin/users`) → `403`.
+- Attempting to demote the last remaining admin → `409`, role unchanged.
 
 ## Testing
 
@@ -134,3 +166,7 @@ Per repo TDD rules, nothing in the test suite hits MailerSend or a real authenti
   limits, 3-guess lockout, 10-minute expiry) is deterministic in tests.
 - Route-level tests use `supertest` against `createApp`, consistent with existing API
   tests.
+- RBAC is covered at the route level: a `member` session gets `403` on rescrape and
+  admin-user routes; an `admin` session succeeds; demoting the last admin returns
+  `409` and leaves the role unchanged; registering with `ADMIN_EMAIL` yields `role:
+  'admin'` and any other email yields `role: 'member'`.
