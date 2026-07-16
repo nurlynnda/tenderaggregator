@@ -47,9 +47,10 @@ function matchesValue(value: unknown, condition: unknown): boolean {
 const ARRAY_LEVEL_OPS = new Set(['$size', '$elemMatch', '$ne']);
 
 function matchesField(doc: unknown, field: string, condition: unknown): boolean {
-  if (field.includes('.')) {
-    const [head, ...restParts] = field.split('.');
-    const rest = restParts.join('.');
+  const dotIndex = field.indexOf('.');
+  if (dotIndex !== -1) {
+    const head = field.slice(0, dotIndex);
+    const rest = field.slice(dotIndex + 1);
     const headVal = getRaw(doc, head);
     const arr = Array.isArray(headVal) ? headVal : [headVal];
     return arr.some((el) => matchesField(el ?? {}, rest, condition));
