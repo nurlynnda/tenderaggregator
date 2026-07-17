@@ -24,9 +24,21 @@ describe('MailerSendEmailSender', () => {
   });
 
   it('throws when MailerSend responds with a non-ok status', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 401 });
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 401, text: async () => '' });
     const sender = new MailerSendEmailSender('bad-key', 'noreply@example.com', fetchImpl as unknown as typeof fetch);
     await expect(sender.send({ to: 'a@b.com', subject: 's', text: 't' })).rejects.toThrow('MailerSend request failed: 401');
+  });
+
+  it('includes the response body in the error so the actual validation failure is visible', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      text: async () => '{"message":"The from.email must be a verified domain."}',
+    });
+    const sender = new MailerSendEmailSender('bad-key', 'noreply@example.com', fetchImpl as unknown as typeof fetch);
+    await expect(sender.send({ to: 'a@b.com', subject: 's', text: 't' })).rejects.toThrow(
+      'MailerSend request failed: 422 - {"message":"The from.email must be a verified domain."}',
+    );
   });
 });
 

@@ -23,7 +23,10 @@ export class MailerSendEmailSender implements EmailSender {
         text: params.text,
       }),
     });
-    if (!res.ok) throw new Error(`MailerSend request failed: ${res.status}`);
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`MailerSend request failed: ${res.status}${body ? ` - ${body}` : ''}`);
+    }
   }
 }
 
