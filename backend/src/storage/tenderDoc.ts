@@ -28,6 +28,7 @@ export interface QueryableCollection<T> {
     options?: { upsert?: boolean },
   ): Promise<unknown>;
   updateMany(filter: Record<string, unknown>, update: Record<string, unknown>): Promise<unknown>;
+  deleteOne(filter: Record<string, unknown>): Promise<unknown>;
   countDocuments(filter?: Record<string, unknown>): Promise<number>;
   distinct(field: string, filter?: Record<string, unknown>): Promise<unknown[]>;
   aggregate<R extends Document = Document>(pipeline: Document[]): AggregationCursorLike<R>;

@@ -8,6 +8,13 @@ services:
     environment:
       - PORT=3001
       - MONGO_URI=mongodb://mongo:27017/tms?replicaSet=rs0
+      - MAILERSEND_API_KEY=${MAILERSEND_API_KEY:?MAILERSEND_API_KEY must be set}
+      - MAILERSEND_FROM_EMAIL=${MAILERSEND_FROM_EMAIL:-noreply@example.com}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:?ADMIN_EMAIL must be set}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET must be set}
+      - RP_ID=${RP_ID:-localhost}
+      - RP_NAME=${RP_NAME:-Malaysia Tender Aggregator}
+      - ORIGIN=${ORIGIN:-http://localhost:5173}
     networks:
       - shared-mongo
 

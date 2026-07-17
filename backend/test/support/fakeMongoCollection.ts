@@ -122,6 +122,21 @@ export class FakeCollection<T extends { _id: string }> {
     return { modifiedCount };
   }
 
+  async deleteOne(filter: Filter): Promise<{ deletedCount: number }> {
+    if (Object.keys(filter).length === 1 && '_id' in filter) {
+      const id = filter._id as string;
+      const existed = this.docs.delete(id);
+      return { deletedCount: existed ? 1 : 0 };
+    }
+    for (const [id, doc] of this.docs.entries()) {
+      if (matchesDoc(doc, filter)) {
+        this.docs.delete(id);
+        return { deletedCount: 1 };
+      }
+    }
+    return { deletedCount: 0 };
+  }
+
   async countDocuments(filter: Filter = {}): Promise<number> {
     return [...this.docs.values()].filter((doc) => matchesDoc(doc, filter)).length;
   }
