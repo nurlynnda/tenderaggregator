@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { ah } from '../api/asyncHandler.js';
 import { requireAdmin, requireAuth } from './middleware.js';
 import type { SessionRepository } from './sessionRepository.js';
 import type { UserRepository } from './userRepository.js';
@@ -10,14 +11,14 @@ export function createAdminRoutes(deps: { users: UserRepository; sessions: Sessi
   const router = Router();
   router.use(requireAuth(deps.sessions, deps.users, deps.sessionTtlMs), requireAdmin());
 
-  router.get('/users', async (_req, res) => {
+  router.get('/users', ah(async (_req, res) => {
     const all = await deps.users.findAll();
     res.json({
       users: all.map((u) => ({ id: u._id, name: u.name, email: u.email, role: u.role, createdAt: u.createdAt })),
     });
-  });
+  }));
 
-  router.patch('/users/:id/role', async (req, res) => {
+  router.patch('/users/:id/role', ah(async (req, res) => {
     const parsed = RoleSchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
@@ -31,7 +32,7 @@ export function createAdminRoutes(deps: { users: UserRepository; sessions: Sessi
 
     await deps.users.updateRole(target._id, parsed.data.role);
     res.json({ id: target._id, name: target.name, email: target.email, role: parsed.data.role, createdAt: target.createdAt });
-  });
+  }));
 
   return router;
 }

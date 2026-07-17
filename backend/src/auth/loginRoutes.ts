@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { ah } from '../api/asyncHandler.js';
 import {
   clearLoginChallengeCookie,
   clearSessionCookie,
@@ -24,7 +25,7 @@ export function createLoginRoutes(deps: {
 }): Router {
   const router = Router();
 
-  router.post('/login/options', async (req, res) => {
+  router.post('/login/options', ah(async (req, res) => {
     const parsed = EmailSchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
@@ -34,9 +35,9 @@ export function createLoginRoutes(deps: {
     const options = await deps.webauthn.generateAuthenticationOptions({ credential: user.credential });
     setLoginChallengeCookie(res, { userId: user._id, challenge: options.challenge });
     res.json(options);
-  });
+  }));
 
-  router.post('/login/verify', async (req, res) => {
+  router.post('/login/verify', ah(async (req, res) => {
     const parsed = VerifySchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
@@ -59,14 +60,15 @@ export function createLoginRoutes(deps: {
     const session = await deps.sessions.create(user._id, deps.sessionTtlMs);
     setSessionCookie(res, session._id, deps.sessionTtlMs);
     res.json({ user: { name: user.name, email: user.email, role: user.role } });
-  });
+  }));
 
-  router.post('/logout', async (req, res) => {
+  router.post('/logout', ah(async (req, res) => {
     const sessionId = readSessionCookie(req);
     if (sessionId) await deps.sessions.delete(sessionId);
     clearSessionCookie(res);
+    clearLoginChallengeCookie(res);
     res.json({ ok: true });
-  });
+  }));
 
   router.get('/me', requireAuth(deps.sessions, deps.users, deps.sessionTtlMs), (req, res) => {
     const user = (req as unknown as { user: { name: string; email: string; role: string } }).user;

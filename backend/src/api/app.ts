@@ -1,4 +1,5 @@
 import express from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import cookieParser from 'cookie-parser';
 import { z } from 'zod';
 import { computeDedupKey } from '@tms/shared';
@@ -17,6 +18,7 @@ import type { SessionRepository } from '../auth/sessionRepository.js';
 import type { EmailSender } from '../auth/emailSender.js';
 import type { WebAuthnService } from '../auth/webauthnService.js';
 import type { RateLimiter } from '../auth/rateLimiter.js';
+import { ah } from './asyncHandler.js';
 
 const ScrapeRequestSchema = z.object({
   source: z.string().optional(),
@@ -57,6 +59,10 @@ export function createApp(deps: {
   cookieSecret: string;
 }) {
   const app = express();
+  // Single reverse-proxy hop in the shipped Docker topology (frontend nginx -> backend), so
+  // req.ip should reflect the client via X-Forwarded-For rather than always being the proxy's
+  // address — this matters for the register rate limiter, which keys on req.ip.
+  app.set('trust proxy', 1);
   app.use(express.json());
   app.use(cookieParser(deps.cookieSecret));
 
@@ -79,32 +85,32 @@ export function createApp(deps: {
 
   const auth = requireAuth(deps.sessions, deps.users, deps.sessionTtlMs);
 
-  app.get('/api/sources', auth, async (_req, res) => {
+  app.get('/api/sources', auth, ah(async (_req, res) => {
     res.json(await deps.manager.listSources());
-  });
+  }));
 
-  app.get('/api/tenders/facets', auth, async (_req, res) => {
+  app.get('/api/tenders/facets', auth, ah(async (_req, res) => {
     res.json(await buildFacets(deps.tendersCollection));
-  });
+  }));
 
-  app.get('/api/dashboard', auth, async (_req, res) => {
+  app.get('/api/dashboard', auth, ah(async (_req, res) => {
     res.json(buildDashboardStats(await deps.repo.findAwarded()));
-  });
+  }));
 
-  app.get('/api/tenders/:refNo', auth, async (req, res) => {
+  app.get('/api/tenders/:refNo', auth, ah(async (req, res) => {
     const key = computeDedupKey(req.params.refNo, req.params.refNo);
     const tender = await deps.repo.findByDedupKey(key);
     if (!tender) return res.status(404).json({ error: 'tender not found' });
     res.json({ tender });
-  });
+  }));
 
-  app.get('/api/tenders', auth, async (req, res) => {
+  app.get('/api/tenders', auth, ah(async (req, res) => {
     const parsed = QuerySchema.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
     res.json(await queryTenders(deps.tendersCollection, parsed.data));
-  });
+  }));
 
-  app.post('/api/scrape', auth, requireAdmin(), async (req, res) => {
+  app.post('/api/scrape', auth, requireAdmin(), ah(async (req, res) => {
     const parsed = ScrapeRequestSchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
     if (parsed.data.scope === 'results') {
@@ -117,7 +123,7 @@ export function createApp(deps: {
     const started = deps.manager.start(scope, { sourceName: parsed.data.source });
     if (!started) return res.status(409).json({ error: 'scrape already running' });
     res.status(202).json({ started: true });
-  });
+  }));
 
   app.post('/api/scrape/cancel', auth, requireAdmin(), (_req, res) => {
     if (!deps.manager.cancel()) return res.status(409).json({ error: 'nothing running' });
@@ -126,6 +132,16 @@ export function createApp(deps: {
 
   app.get('/api/scrape/status', auth, (_req, res) => {
     res.json(deps.manager.status());
+  });
+
+  // Terminal error-handling middleware (4-arg signature is what makes Express treat this as an
+  // error handler). Catches anything forwarded via next(err) — including rejections from
+  // handlers wrapped in `ah` above and from requireAuth/requireAdmin — and returns a clean
+  // 500 instead of leaving the connection hanging.
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    console.error('[unhandled request error]', err);
+    if (res.headersSent) return;
+    res.status(500).json({ error: 'internal server error' });
   });
 
   return app;

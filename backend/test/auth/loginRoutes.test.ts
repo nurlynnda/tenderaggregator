@@ -54,6 +54,19 @@ describe('login routes', () => {
     void user;
   });
 
+  it('logout clears the login-challenge cookie as well as the session cookie', async () => {
+    await users.create({ name: 'Jane', email: 'jane@example.com', role: 'member', credential });
+    const agent = request.agent(app);
+    // Start (but don't finish) a login ceremony so a login-challenge cookie is set, then log out.
+    await agent.post('/api/auth/login/options').send({ email: 'jane@example.com' });
+    const res = await agent.post('/api/auth/logout');
+    const setCookie = (res.headers['set-cookie'] as unknown as string[]) ?? [];
+    const clearedLoginChallenge = setCookie.some(
+      (c) => c.startsWith('loginChallenge=') && (c.includes('Expires=Thu, 01 Jan 1970') || c.includes('Max-Age=0')),
+    );
+    expect(clearedLoginChallenge).toBe(true);
+  });
+
   it('login/verify 401s when the WebAuthn assertion fails to verify', async () => {
     await users.create({ name: 'Jane', email: 'jane@example.com', role: 'member', credential });
     webauthn.nextAuthenticationResult = { verified: false };

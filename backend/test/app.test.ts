@@ -98,6 +98,13 @@ describe('API', () => {
     expect(res.status).toBe(202);
   });
 
+  it('trusts the first reverse-proxy hop, so req.ip reflects X-Forwarded-For', () => {
+    // Verifies the fix for the register rate limiter, which keys on req.ip: behind the
+    // shipped Docker nginx proxy, without this every request would look like it came from
+    // the proxy, collapsing the per-IP limit into one shared limit for the whole site.
+    expect(app.get('trust proxy')).toBe(1);
+  });
+
   it('GET /api/health stays open with no auth', async () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
