@@ -1,6 +1,5 @@
 services:
-  backend:
-    container_name: tender-aggregator-backend
+  tender-aggregator-backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -18,8 +17,7 @@ services:
     networks:
       - shared-mongo
 
-  frontend:
-    container_name: tender-aggregator-frontend
+  tender-aggregator-frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
@@ -31,5 +29,6 @@ services:
 
 networks:
   shared-mongo:
-    name: shared-mongo
+    external: true
+  shared-edge:
     external: true
