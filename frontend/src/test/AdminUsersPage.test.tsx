@@ -36,4 +36,24 @@ describe('AdminUsersPage', () => {
     await userEvent.selectOptions(screen.getByLabelText(/role for member@example.com/i), 'admin');
     await waitFor(() => expect(patchedBody).toEqual({ role: 'admin' }));
   });
+
+  it('shows an error message when demoting the last remaining admin is rejected with 409', async () => {
+    server.use(
+      http.get('/api/admin/users', () => HttpResponse.json({
+        users: [
+          { id: '1', name: 'Admin', email: 'admin@example.com', role: 'admin', createdAt: '2026-07-01T00:00:00.000Z' },
+          { id: '2', name: 'Member', email: 'member@example.com', role: 'member', createdAt: '2026-07-02T00:00:00.000Z' },
+        ],
+      })),
+    );
+    renderPage();
+    await waitFor(() => expect(screen.getByText('admin@example.com')).toBeInTheDocument());
+
+    server.use(http.patch('/api/admin/users/1/role', () =>
+      HttpResponse.json({ error: 'cannot demote the last remaining admin' }, { status: 409 }),
+    ));
+    await userEvent.selectOptions(screen.getByLabelText(/role for admin@example.com/i), 'member');
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/cannot demote the last remaining admin/i));
+  });
 });

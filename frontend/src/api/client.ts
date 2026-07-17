@@ -106,6 +106,12 @@ export async function updateUserRole(id: string, role: Role): Promise<AdminUser>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ role }),
   });
-  if (!res.ok) throw new Error(`update role failed: ${res.status}`);
+  if (!res.ok) {
+    const message = await res
+      .json()
+      .then((body: { error?: string }) => body?.error)
+      .catch(() => undefined);
+    throw new Error(message ?? `update role failed: ${res.status}`);
+  }
   return res.json() as Promise<AdminUser>;
 }
