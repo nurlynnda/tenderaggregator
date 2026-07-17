@@ -15,6 +15,7 @@ services:
       - RP_NAME=${RP_NAME:-Malaysia Tender Aggregator}
       - ORIGIN=${ORIGIN:-http://localhost:5173}
     networks:
+      - default
       - shared-mongo
 
   tender-aggregator-frontend:
@@ -25,7 +26,10 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - backend
+      - tender-aggregator-backend
+    networks:
+      - default
+      - shared-edge
 
 networks:
   shared-mongo:
