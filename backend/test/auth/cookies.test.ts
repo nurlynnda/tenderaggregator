@@ -3,12 +3,15 @@ import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import {
+  clearLoginChallengeCookie,
   clearPendingRegCookie,
   clearSessionCookie,
   PENDING_REG_COOKIE,
+  readLoginChallengeCookie,
   readPendingRegCookie,
   readSessionCookie,
   SESSION_COOKIE,
+  setLoginChallengeCookie,
   setPendingRegCookie,
   setSessionCookie,
 } from '../../src/auth/cookies.js';
@@ -69,5 +72,24 @@ describe('auth cookies', () => {
   it('cookie names are exported constants', () => {
     expect(PENDING_REG_COOKIE).toBe('pendingRegId');
     expect(SESSION_COOKIE).toBe('sessionId');
+  });
+
+  it('round-trips the login challenge cookie as JSON', async () => {
+    const app = buildApp();
+    app.get('/set-login-challenge', (_req, res) => {
+      setLoginChallengeCookie(res, { userId: 'user-1', challenge: 'chal-1' });
+      res.json({ ok: true });
+    });
+    app.get('/read-login-challenge', (req, res) => res.json(readLoginChallengeCookie(req) ?? null));
+    app.get('/clear-login-challenge', (_req, res) => {
+      clearLoginChallengeCookie(res);
+      res.json({ ok: true });
+    });
+    const agent = request.agent(app);
+    await agent.get('/set-login-challenge');
+    const read = await agent.get('/read-login-challenge');
+    expect(read.body).toEqual({ userId: 'user-1', challenge: 'chal-1' });
+    await agent.get('/clear-login-challenge');
+    expect((await agent.get('/read-login-challenge')).body).toBeNull();
   });
 });
