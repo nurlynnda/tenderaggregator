@@ -1,4 +1,5 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import { z } from 'zod';
 import { computeDedupKey } from '@tms/shared';
 import type { ScrapeManager } from '../scrape/manager.js';
@@ -6,6 +7,16 @@ import type { TenderRepository } from '../storage/repository.js';
 import type { QueryableCollection, TenderDoc } from '../storage/tenderDoc.js';
 import { buildFacets, queryTenders } from '../query/tenders.js';
 import { buildDashboardStats } from '../query/dashboard.js';
+import { createAdminRoutes } from '../auth/adminRoutes.js';
+import { createLoginRoutes } from '../auth/loginRoutes.js';
+import { createRegisterRoutes } from '../auth/registerRoutes.js';
+import { requireAdmin, requireAuth } from '../auth/middleware.js';
+import type { PendingRegistrationRepository } from '../auth/pendingRegistrationRepository.js';
+import type { UserRepository } from '../auth/userRepository.js';
+import type { SessionRepository } from '../auth/sessionRepository.js';
+import type { EmailSender } from '../auth/emailSender.js';
+import type { WebAuthnService } from '../auth/webauthnService.js';
+import type { RateLimiter } from '../auth/rateLimiter.js';
 
 const ScrapeRequestSchema = z.object({
   source: z.string().optional(),
@@ -35,38 +46,65 @@ export function createApp(deps: {
   repo: TenderRepository;
   tendersCollection: QueryableCollection<TenderDoc>;
   manager: ScrapeManager;
+  pendingRegistrations: PendingRegistrationRepository;
+  users: UserRepository;
+  sessions: SessionRepository;
+  email: EmailSender;
+  webauthn: WebAuthnService;
+  rateLimiter: RateLimiter;
+  adminEmail: string;
+  sessionTtlMs: number;
+  cookieSecret: string;
 }) {
   const app = express();
   app.use(express.json());
+  app.use(cookieParser(deps.cookieSecret));
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-  app.get('/api/sources', async (_req, res) => {
+  app.use('/api/auth/register', createRegisterRoutes({
+    pendingRegistrations: deps.pendingRegistrations,
+    users: deps.users,
+    sessions: deps.sessions,
+    email: deps.email,
+    webauthn: deps.webauthn,
+    rateLimiter: deps.rateLimiter,
+    adminEmail: deps.adminEmail,
+    sessionTtlMs: deps.sessionTtlMs,
+  }));
+  app.use('/api/auth', createLoginRoutes({
+    users: deps.users, sessions: deps.sessions, webauthn: deps.webauthn, sessionTtlMs: deps.sessionTtlMs,
+  }));
+  app.use('/api/admin', createAdminRoutes({ users: deps.users, sessions: deps.sessions, sessionTtlMs: deps.sessionTtlMs }));
+
+  const auth = requireAuth(deps.sessions, deps.users, deps.sessionTtlMs);
+
+  app.get('/api/sources', auth, async (_req, res) => {
     res.json(await deps.manager.listSources());
   });
 
-  app.get('/api/tenders/facets', async (_req, res) => {
+  app.get('/api/tenders/facets', auth, async (_req, res) => {
     res.json(await buildFacets(deps.tendersCollection));
   });
 
-  app.get('/api/dashboard', async (_req, res) => {
+  app.get('/api/dashboard', auth, async (_req, res) => {
     res.json(buildDashboardStats(await deps.repo.findAwarded()));
   });
 
-  app.get('/api/tenders/:refNo', async (req, res) => {
+  app.get('/api/tenders/:refNo', auth, async (req, res) => {
     const key = computeDedupKey(req.params.refNo, req.params.refNo);
     const tender = await deps.repo.findByDedupKey(key);
     if (!tender) return res.status(404).json({ error: 'tender not found' });
     res.json({ tender });
   });
 
-  app.get('/api/tenders', async (req, res) => {
+  app.get('/api/tenders', auth, async (req, res) => {
     const parsed = QuerySchema.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
     res.json(await queryTenders(deps.tendersCollection, parsed.data));
   });
 
-  app.post('/api/scrape', async (req, res) => {
+  app.post('/api/scrape', auth, requireAdmin(), async (req, res) => {
     const parsed = ScrapeRequestSchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
     if (parsed.data.scope === 'results') {
@@ -81,12 +119,12 @@ export function createApp(deps: {
     res.status(202).json({ started: true });
   });
 
-  app.post('/api/scrape/cancel', (_req, res) => {
+  app.post('/api/scrape/cancel', auth, requireAdmin(), (_req, res) => {
     if (!deps.manager.cancel()) return res.status(409).json({ error: 'nothing running' });
     res.json({ cancelled: true });
   });
 
-  app.get('/api/scrape/status', (_req, res) => {
+  app.get('/api/scrape/status', auth, (_req, res) => {
     res.json(deps.manager.status());
   });
 
