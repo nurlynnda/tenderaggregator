@@ -1,7 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   clearLoginChallengeCookie,
   clearPendingRegCookie,
@@ -91,5 +91,29 @@ describe('auth cookies', () => {
     expect(read.body).toEqual({ userId: 'user-1', challenge: 'chal-1' });
     await agent.get('/clear-login-challenge');
     expect((await agent.get('/read-login-challenge')).body).toBeNull();
+  });
+
+  describe('Secure flag', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalNodeEnv;
+    });
+
+    it('omits Secure in non-production (e.g. local dev over plain HTTP)', async () => {
+      process.env.NODE_ENV = 'test';
+      const app = buildApp();
+      const res = await request(app).get('/set-session');
+      const setCookie = res.headers['set-cookie'] as unknown as string[];
+      expect(setCookie[0]).not.toMatch(/Secure/i);
+    });
+
+    it('sets Secure in production', async () => {
+      process.env.NODE_ENV = 'production';
+      const app = buildApp();
+      const res = await request(app).get('/set-session');
+      const setCookie = res.headers['set-cookie'] as unknown as string[];
+      expect(setCookie[0]).toMatch(/Secure/i);
+    });
   });
 });

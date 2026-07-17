@@ -6,11 +6,19 @@ export const SESSION_COOKIE = 'sessionId';
 // 10 minutes — matches the OTP expiry window this cookie exists to bound.
 const PENDING_REG_TTL_MS = 10 * 60 * 1000;
 
+// Only require HTTPS-only delivery in production — hardcoding `secure: true` would break
+// `npm run dev`, which serves the frontend/backend over plain HTTP locally. Read lazily
+// (not a module-level constant) so it reflects NODE_ENV at request time.
+function secureCookies(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
 export function setPendingRegCookie(res: Response, id: string): void {
   res.cookie(PENDING_REG_COOKIE, id, {
     httpOnly: true,
     signed: true,
     sameSite: 'strict',
+    secure: secureCookies(),
     maxAge: PENDING_REG_TTL_MS,
   });
 }
@@ -29,6 +37,7 @@ export function setSessionCookie(res: Response, id: string, ttlMs: number): void
     httpOnly: true,
     signed: true,
     sameSite: 'strict',
+    secure: secureCookies(),
     maxAge: ttlMs,
   });
 }
@@ -50,6 +59,7 @@ export function setLoginChallengeCookie(res: Response, value: { userId: string; 
     httpOnly: true,
     signed: true,
     sameSite: 'strict',
+    secure: secureCookies(),
     maxAge: LOGIN_CHALLENGE_TTL_MS,
   });
 }
