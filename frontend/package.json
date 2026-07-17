@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
     "@tanstack/react-query": "^5.101.2",
     "@tms/shared": "^0.0.1",
     "react": "^19.2.7",

@@ -33,3 +33,7 @@ export interface DashboardStats {
   allMinistries: MinistryStat[];
   allContractors: ContractorStat[];
 }
+
+export type Role = 'admin' | 'member';
+export interface CurrentUser { name: string; email: string; role: Role }
+export interface AdminUser { id: string; name: string; email: string; role: Role; createdAt: string }
