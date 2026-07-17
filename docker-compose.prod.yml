@@ -1,0 +1,35 @@
+services:
+  backend:
+    container_name: tender-aggregator-backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+      - MONGO_URI=mongodb://mongo:27017/tms?replicaSet=rs0
+      - MAILERSEND_API_KEY=${MAILERSEND_API_KEY:?MAILERSEND_API_KEY must be set}
+      - MAILERSEND_FROM_EMAIL=${MAILERSEND_FROM_EMAIL:-noreply@example.com}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:?ADMIN_EMAIL must be set}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET must be set}
+      - RP_ID=${RP_ID:-localhost}
+      - RP_NAME=${RP_NAME:-Malaysia Tender Aggregator}
+      - ORIGIN=${ORIGIN:-http://localhost:5173}
+    networks:
+      - shared-mongo
+
+  frontend:
+    container_name: tender-aggregator-frontend
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+networks:
+  shared-mongo:
+    name: shared-mongo
+    external: true

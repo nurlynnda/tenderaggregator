@@ -14,5 +14,5 @@ import { server } from './mocks';
 expect.extend(matchers);
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => { server.resetHandlers(); cleanup(); });
+afterEach(() => { server.resetHandlers(); cleanup(); window.history.pushState({}, '', '/'); });
 afterAll(() => server.close());

@@ -1,4 +1,6 @@
 import type { Tender } from '@tms/shared';
+import type { QueryableCollection, TenderDoc } from '../storage/tenderDoc.js';
+import { fromDoc } from '../storage/tenderDoc.js';
 
 export interface TenderQuery {
   search?: string;
@@ -37,64 +39,78 @@ export interface Facets {
 
 const MAX_PAGE_SIZE = 100;
 
-export function queryTenders(tenders: Tender[], q: TenderQuery): TenderPage {
-  let items = tenders;
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
+export function buildMatchStage(q: TenderQuery): Record<string, unknown> {
+  const match: Record<string, unknown> = {};
   if (q.search) {
-    const needle = q.search.toLowerCase();
-    items = items.filter(
-      (t) => t.title.toLowerCase().includes(needle) || t.referenceNo.toLowerCase().includes(needle),
-    );
+    const pattern = escapeRegex(q.search);
+    match.$or = [
+      { title: { $regex: pattern, $options: 'i' } },
+      { referenceNo: { $regex: pattern, $options: 'i' } },
+    ];
   }
-  if (q.ministry) items = items.filter((t) => t.ministry === q.ministry);
-  if (q.agency) items = items.filter((t) => t.agency === q.agency);
-  if (q.category) items = items.filter((t) => t.category === q.category);
-  if (q.source) items = items.filter((t) => t.sources.some((s) => s.source === q.source));
-  if (q.closingFrom) {
-    items = items.filter((t) => t.closingDate !== null && t.closingDate >= q.closingFrom!);
+  if (q.ministry) match.ministry = q.ministry;
+  if (q.agency) match.agency = q.agency;
+  if (q.category) match.category = q.category;
+  if (q.source) match['sources.source'] = q.source;
+  if (q.closingFrom || q.closingTo) {
+    const range: Record<string, string> = {};
+    if (q.closingFrom) range.$gte = q.closingFrom;
+    if (q.closingTo) range.$lte = q.closingTo;
+    match.closingDate = range;
   }
-  if (q.closingTo) {
-    items = items.filter((t) => t.closingDate !== null && t.closingDate <= q.closingTo!);
-  }
-  if (q.status) items = items.filter((t) => t.status === q.status);
-  if (q.procurementType) items = items.filter((t) => t.procurementType === q.procurementType);
-  if (q.fieldCode) items = items.filter((t) => t.fieldCodes.some((c) => c.startsWith(q.fieldCode!)));
-  if (q.hasWinners) items = items.filter((t) => t.winners !== null && t.winners.length > 0);
-  if (q.contractor) {
-    const needle = q.contractor.toLowerCase();
-    items = items.filter((t) => t.winners?.some((w) => w.name.toLowerCase().includes(needle)) ?? false);
-  }
+  if (q.status) match.status = q.status;
+  if (q.procurementType) match.procurementType = q.procurementType;
+  if (q.fieldCode) match.fieldCodes = { $regex: `^${escapeRegex(q.fieldCode)}`, $options: 'i' };
+  if (q.hasWinners) match.winners = { $ne: null, $not: { $size: 0 } };
+  if (q.contractor) match.winners = { $elemMatch: { name: { $regex: escapeRegex(q.contractor), $options: 'i' } } };
+  return match;
+}
 
+export async function queryTenders(collection: QueryableCollection<TenderDoc>, q: TenderQuery): Promise<TenderPage> {
+  const match = buildMatchStage(q);
   const sortBy = q.sortBy ?? 'advertisedDate';
   const dir = (q.sortOrder ?? 'desc') === 'asc' ? 1 : -1;
-  const sorted = [...items].sort((a, b) => {
-    const av = a[sortBy];
-    const bv = b[sortBy];
-    if (av === null && bv === null) return 0;
-    if (av === null) return 1; // nulls last regardless of direction
-    if (bv === null) return -1;
-    return av < bv ? -dir : av > bv ? dir : 0;
-  });
-
   const page = Math.max(1, q.page ?? 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, q.pageSize ?? 20));
+
+  const pipeline = [
+    { $match: match },
+    { $addFields: { __sortMissing: { $cond: [{ $eq: [`$${sortBy}`, null] }, 1, 0] } } },
+    { $sort: { __sortMissing: 1, [sortBy]: dir } },
+    {
+      $facet: {
+        items: [{ $skip: (page - 1) * pageSize }, { $limit: pageSize }, { $project: { __sortMissing: 0 } }],
+        totalCount: [{ $count: 'count' }],
+      },
+    },
+  ];
+
+  type FacetResult = { items: TenderDoc[]; totalCount: Array<{ count: number }> };
+  const [result] = await collection.aggregate<FacetResult>(pipeline).toArray();
   return {
-    items: sorted.slice((page - 1) * pageSize, page * pageSize),
-    total: sorted.length,
+    items: (result?.items ?? []).map(fromDoc),
+    total: result?.totalCount[0]?.count ?? 0,
     page,
     pageSize,
   };
 }
 
-export function buildFacets(tenders: Tender[]): Facets {
-  const distinct = (vals: Array<string | null>) =>
-    [...new Set(vals.filter((v): v is string => v !== null))].sort();
-  return {
-    ministries: distinct(tenders.map((t) => t.ministry)),
-    agencies: distinct(tenders.map((t) => t.agency)),
-    categories: distinct(tenders.map((t) => t.category)),
-    sources: distinct(tenders.flatMap((t) => t.sources.map((s) => s.source))),
-    procurementTypes: distinct(tenders.map((t) => t.procurementType)),
-    fieldCodes: [...new Set(tenders.flatMap((t) => t.fieldCodes))].sort(),
+export async function buildFacets(collection: QueryableCollection<TenderDoc>): Promise<Facets> {
+  const distinctSorted = async (field: string): Promise<string[]> => {
+    const values = (await collection.distinct(field)) as Array<string | null>;
+    return values.filter((v): v is string => v !== null).sort();
   };
+  const [ministries, agencies, categories, sources, procurementTypes, fieldCodes] = await Promise.all([
+    distinctSorted('ministry'),
+    distinctSorted('agency'),
+    distinctSorted('category'),
+    distinctSorted('sources.source'),
+    distinctSorted('procurementType'),
+    distinctSorted('fieldCodes'),
+  ]);
+  return { ministries, agencies, categories, sources, procurementTypes, fieldCodes };
 }

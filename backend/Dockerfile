@@ -6,6 +6,6 @@ COPY backend/package.json backend/
 RUN npm ci --omit=dev --ignore-scripts --workspace shared --workspace backend
 COPY shared shared
 COPY backend backend
-ENV DATA_DIR=/app/data
+ENV MONGO_URI=mongodb://mongo:27017/tms
 EXPOSE 3001
 CMD ["npm", "run", "start", "-w", "backend"]
