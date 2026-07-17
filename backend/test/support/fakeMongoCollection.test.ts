@@ -141,4 +141,11 @@ describe('FakeCollection', () => {
     expect(result!.totalCount[0]!.count).toBe(3);
     expect((result!.items[0] as unknown as Record<string, unknown>).__sortMissing).toBeUndefined(); // $project stripped it
   });
+
+  it('deleteOne removes a matching document', async () => {
+    const col = new FakeCollection<{ _id: string; name: string }>();
+    await col.replaceOne({ _id: '1' }, { _id: '1', name: 'a' }, { upsert: true });
+    await col.deleteOne({ _id: '1' });
+    expect(await col.findOne({ _id: '1' })).toBeNull();
+  });
 });
