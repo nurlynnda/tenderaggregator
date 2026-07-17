@@ -15,9 +15,28 @@ import { decideStartupPolicy } from './startupPolicy.js';
 import { DailyScheduler } from './scheduler/DailyScheduler.js';
 import { createDailyRunStateStore } from './scheduler/dailyRunState.js';
 import type { SchedulerStateDoc } from './scheduler/dailyRunState.js';
+import { PendingRegistrationRepository } from './auth/pendingRegistrationRepository.js';
+import { UserRepository } from './auth/userRepository.js';
+import { SessionRepository } from './auth/sessionRepository.js';
+import { MailerSendEmailSender } from './auth/emailSender.js';
+import { SimpleWebAuthnService } from './auth/webauthnService.js';
+import { InMemoryRateLimiter } from './auth/rateLimiter.js';
+import type { PendingRegistrationDoc, SessionDoc, UserDoc } from './auth/types.js';
 
 const PORT = Number(process.env.PORT) || 3001;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/tms';
+const MAILERSEND_API_KEY = process.env.MAILERSEND_API_KEY ?? '';
+const MAILERSEND_FROM_EMAIL = process.env.MAILERSEND_FROM_EMAIL ?? 'noreply@example.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? '';
+const SESSION_SECRET = process.env.SESSION_SECRET ?? '';
+const RP_ID = process.env.RP_ID ?? 'localhost';
+const RP_NAME = process.env.RP_NAME ?? 'Malaysia Tender Aggregator';
+const ORIGIN = process.env.ORIGIN ?? 'http://localhost:5173';
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
+
+if (!ADMIN_EMAIL || !SESSION_SECRET || !MAILERSEND_API_KEY) {
+  throw new Error('ADMIN_EMAIL, SESSION_SECRET, and MAILERSEND_API_KEY must be set');
+}
 
 async function main() {
   const client = new MongoClient(MONGO_URI);
@@ -40,6 +59,23 @@ async function main() {
     tendersCollection.createIndex({ advertisedDate: 1 }),
     tendersCollection.createIndex({ 'sources.source': 1 }),
   ]);
+
+  const pendingRegistrationsCollection = db.collection<PendingRegistrationDoc>('pendingRegistrations');
+  const usersCollection = db.collection<UserDoc>('users');
+  const sessionsCollection = db.collection<SessionDoc>('sessions');
+
+  await Promise.all([
+    pendingRegistrationsCollection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    usersCollection.createIndex({ email: 1 }, { unique: true }),
+    sessionsCollection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+  ]);
+
+  const pendingRegistrations = new PendingRegistrationRepository(pendingRegistrationsCollection);
+  const users = new UserRepository(usersCollection);
+  const sessions = new SessionRepository(sessionsCollection);
+  const email = new MailerSendEmailSender(MAILERSEND_API_KEY, MAILERSEND_FROM_EMAIL);
+  const webauthn = new SimpleWebAuthnService(RP_ID, RP_NAME, ORIGIN);
+  const rateLimiter = new InMemoryRateLimiter();
 
   const repo = new TenderRepository(tendersCollection, sourceMetaCollection);
 
@@ -111,7 +147,13 @@ async function main() {
     console.error('[daily] scheduler failed to start; continuing without it:', err);
   }
 
-  createApp({ repo, tendersCollection, manager }).listen(PORT, () => {
+  createApp({
+    repo, tendersCollection, manager,
+    pendingRegistrations, users, sessions, email, webauthn, rateLimiter,
+    adminEmail: ADMIN_EMAIL,
+    sessionTtlMs: SESSION_TTL_MS,
+    cookieSecret: SESSION_SECRET,
+  }).listen(PORT, () => {
     console.log(`backend listening on :${PORT}`);
   });
 }
