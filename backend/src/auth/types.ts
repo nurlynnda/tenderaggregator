@@ -6,7 +6,7 @@ export interface PendingRegistrationDoc {
   email: string;
   otpHash: string;
   otpAttempts: number;
-  expiresAt: string;
+  expiresAt: Date;
   verified: boolean;
   challenge?: string;
 }
@@ -24,5 +24,5 @@ export interface SessionDoc {
   _id: string;
   userId: string;
   createdAt: string;
-  expiresAt: string;
+  expiresAt: Date;
 }

@@ -14,7 +14,7 @@ export class SessionRepository {
       _id: randomUUID(),
       userId,
       createdAt: created.toISOString(),
-      expiresAt: new Date(created.getTime() + ttlMs).toISOString(),
+      expiresAt: new Date(created.getTime() + ttlMs),
     };
     await this.collection.replaceOne({ _id: doc._id }, doc, { upsert: true });
     return doc;
@@ -27,7 +27,7 @@ export class SessionRepository {
   async touch(id: string, ttlMs: number): Promise<void> {
     const doc = await this.findById(id);
     if (!doc) return;
-    await this.collection.replaceOne({ _id: id }, { ...doc, expiresAt: new Date(this.now().getTime() + ttlMs).toISOString() });
+    await this.collection.replaceOne({ _id: id }, { ...doc, expiresAt: new Date(this.now().getTime() + ttlMs) });
   }
 
   async delete(id: string): Promise<void> {

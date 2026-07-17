@@ -4,11 +4,12 @@ import type { SessionDoc } from '../../src/auth/types.js';
 import { FakeCollection } from '../support/fakeMongoCollection.js';
 
 describe('SessionRepository', () => {
-  it('creates a session with an expiresAt ttlMs in the future', async () => {
+  it('creates a session with an expiresAt ttlMs in the future, stored as a Date', async () => {
     const repo = new SessionRepository(new FakeCollection<SessionDoc>(), () => new Date('2026-07-17T00:00:00.000Z'));
     const session = await repo.create('user-1', 1000 * 60 * 60 * 24 * 30);
     expect(session.userId).toBe('user-1');
-    expect(session.expiresAt).toBe('2026-08-16T00:00:00.000Z');
+    expect(session.expiresAt).toBeInstanceOf(Date);
+    expect(session.expiresAt.toISOString()).toBe('2026-08-16T00:00:00.000Z');
   });
 
   it('findById returns the session, or null when unknown', async () => {
@@ -25,7 +26,8 @@ describe('SessionRepository', () => {
     now = new Date('2026-07-17T00:30:00.000Z');
     await repo.touch(session._id, 1000 * 60);
     const updated = await repo.findById(session._id);
-    expect(updated?.expiresAt).toBe('2026-07-17T00:31:00.000Z');
+    expect(updated?.expiresAt).toBeInstanceOf(Date);
+    expect(updated?.expiresAt.toISOString()).toBe('2026-07-17T00:31:00.000Z');
   });
 
   it('delete removes the session', async () => {

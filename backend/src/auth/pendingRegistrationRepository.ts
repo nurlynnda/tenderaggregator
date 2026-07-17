@@ -5,7 +5,7 @@ import type { PendingRegistrationDoc } from './types.js';
 export class PendingRegistrationRepository {
   constructor(private readonly collection: QueryableCollection<PendingRegistrationDoc>) {}
 
-  async create(input: { name: string; email: string; otpHash: string; expiresAt: string }): Promise<PendingRegistrationDoc> {
+  async create(input: { name: string; email: string; otpHash: string; expiresAt: Date }): Promise<PendingRegistrationDoc> {
     const doc: PendingRegistrationDoc = {
       _id: randomUUID(),
       name: input.name,

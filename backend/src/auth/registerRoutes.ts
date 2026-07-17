@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { ah } from '../api/asyncHandler.js';
 import { readPendingRegCookie, setPendingRegCookie, clearPendingRegCookie, setSessionCookie } from './cookies.js';
 import { generateOtp, hashOtp, verifyOtp } from './otp.js';
 import type { EmailSender } from './emailSender.js';
@@ -30,7 +31,7 @@ export function createRegisterRoutes(deps: {
   const now = deps.now ?? (() => new Date());
   const router = Router();
 
-  router.post('/request', async (req, res) => {
+  router.post('/request', ah(async (req, res) => {
     const parsed = RequestSchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
@@ -39,7 +40,7 @@ export function createRegisterRoutes(deps: {
     }
 
     const otp = generateOtp();
-    const expiresAt = new Date(now().getTime() + OTP_TTL_MS).toISOString();
+    const expiresAt = new Date(now().getTime() + OTP_TTL_MS);
     const pending = await deps.pendingRegistrations.create({
       name: parsed.data.name,
       email: parsed.data.email,
@@ -53,15 +54,15 @@ export function createRegisterRoutes(deps: {
       text: `${parsed.data.name} (${parsed.data.email}) is requesting access. OTP: ${otp}`,
     });
     res.status(202).json({ ok: true });
-  });
+  }));
 
-  router.post('/verify-otp', async (req, res) => {
+  router.post('/verify-otp', ah(async (req, res) => {
     const parsed = VerifyOtpSchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
     const pendingId = readPendingRegCookie(req);
     const pending = pendingId ? await deps.pendingRegistrations.findById(pendingId) : null;
-    if (!pending || new Date(pending.expiresAt) <= now()) {
+    if (!pending || pending.expiresAt <= now()) {
       clearPendingRegCookie(res);
       return res.status(400).json({ error: 'no pending registration' });
     }
@@ -78,9 +79,9 @@ export function createRegisterRoutes(deps: {
 
     await deps.pendingRegistrations.markVerified(pending._id);
     res.json({ ok: true });
-  });
+  }));
 
-  router.post('/passkey/options', async (req, res) => {
+  router.post('/passkey/options', ah(async (req, res) => {
     const pendingId = readPendingRegCookie(req);
     const pending = pendingId ? await deps.pendingRegistrations.findById(pendingId) : null;
     if (!pending || !pending.verified) return res.status(400).json({ error: 'no verified pending registration' });
@@ -88,9 +89,9 @@ export function createRegisterRoutes(deps: {
     const options = await deps.webauthn.generateRegistrationOptions({ userId: pending._id, email: pending.email });
     await deps.pendingRegistrations.setChallenge(pending._id, options.challenge);
     res.json(options);
-  });
+  }));
 
-  router.post('/passkey/verify', async (req, res) => {
+  router.post('/passkey/verify', ah(async (req, res) => {
     const parsed = PasskeyVerifySchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
 
@@ -106,6 +107,9 @@ export function createRegisterRoutes(deps: {
     });
     if (!result.verified || !result.credential) return res.status(400).json({ error: 'passkey verification failed' });
 
+    const existingUser = await deps.users.findByEmail(pending.email);
+    if (existingUser) return res.status(409).json({ error: 'an account with that email already exists' });
+
     const role = pending.email.toLowerCase() === deps.adminEmail.toLowerCase() ? 'admin' : 'member';
     const user = await deps.users.create({ name: pending.name, email: pending.email, role, credential: result.credential });
     await deps.pendingRegistrations.delete(pending._id);
@@ -114,7 +118,7 @@ export function createRegisterRoutes(deps: {
     const session = await deps.sessions.create(user._id, deps.sessionTtlMs);
     setSessionCookie(res, session._id, deps.sessionTtlMs);
     res.json({ user: { name: user.name, email: user.email, role: user.role } });
-  });
+  }));
 
   return router;
 }
