@@ -75,6 +75,7 @@ export const handlers = [
   http.get('/api/dashboard', () => HttpResponse.json(defaultDashboardStats)),
   http.get('/api/auth/me', () => HttpResponse.json({ name: 'Test User', email: 'test@example.com', role: 'member' })),
   http.post('/api/auth/logout', () => HttpResponse.json({ ok: true })),
+  http.get('/api/admin/users', () => HttpResponse.json({ users: [] })),
 ];
 
 export const server = setupServer(...handlers);

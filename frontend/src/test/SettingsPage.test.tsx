@@ -5,12 +5,28 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import SettingsPage from '../pages/SettingsPage';
 import { server } from './mocks';
+import { AuthProvider } from '../auth/AuthContext';
 
 function renderSettings() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  server.use(http.get('/api/auth/me', () => HttpResponse.json({ name: 'Admin', email: 'admin@example.com', role: 'admin' })));
   return render(
     <QueryClientProvider client={qc}>
-      <SettingsPage />
+      <AuthProvider>
+        <SettingsPage />
+      </AuthProvider>
+    </QueryClientProvider>,
+  );
+}
+
+function renderSettingsAsMember() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  server.use(http.get('/api/auth/me', () => HttpResponse.json({ name: 'Member', email: 'member@example.com', role: 'member' })));
+  return render(
+    <QueryClientProvider client={qc}>
+      <AuthProvider>
+        <SettingsPage />
+      </AuthProvider>
     </QueryClientProvider>,
   );
 }
@@ -122,5 +138,14 @@ describe('SettingsPage', () => {
     renderSettings();
     const spanRow = await screen.findByRole('group', { name: 'span' });
     expect(within(spanRow).getByText(/cancelled/i)).toBeInTheDocument();
+  });
+
+  it('hides every rescrape/cancel/refresh button for a member', async () => {
+    renderSettingsAsMember();
+    const spanRow = await screen.findByRole('group', { name: 'span' });
+    expect(within(spanRow).queryByRole('button', { name: /fetch open/i })).not.toBeInTheDocument();
+    expect(within(spanRow).queryByRole('button', { name: /full refresh/i })).not.toBeInTheDocument();
+    const mpRow = screen.getByRole('group', { name: 'myprocurement' });
+    expect(within(mpRow).queryByRole('button', { name: /refresh awarded results/i })).not.toBeInTheDocument();
   });
 });

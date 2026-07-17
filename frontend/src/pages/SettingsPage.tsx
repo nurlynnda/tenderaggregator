@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cancelScrape, fetchScrapeStatus, fetchSources, triggerScrape } from '../api/client';
 import { formatSourceLabel } from '../lib/format';
+import { useAuth } from '../auth/AuthContext';
 
 // Sources whose winner/award data comes from a separate "results" job that can be refreshed
 // on its own — see docs/superpowers/specs/2026-07-14-refresh-awarded-results-design.md.
@@ -12,6 +13,7 @@ import { formatSourceLabel } from '../lib/format';
 const SOURCES_WITH_RESULTS_REFRESH = new Set(['myprocurement', 'kwsp', 'llm']);
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: sources } = useQuery({ queryKey: ['sources'], queryFn: fetchSources });
   const { data: status } = useQuery({
@@ -60,39 +62,43 @@ export default function SettingsPage() {
                   )}
                 </div>
                 {isRunningThis ? (
-                  <button
-                    onClick={() => cancelMutation.mutate()}
-                    disabled={cancelMutation.isPending}
-                    className="bg-red-700 text-white text-sm rounded-md px-3 py-1.5 disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
+                  user?.role === 'admin' && (
+                    <button
+                      onClick={() => cancelMutation.mutate()}
+                      disabled={cancelMutation.isPending}
+                      className="bg-red-700 text-white text-sm rounded-md px-3 py-1.5 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  )
                 ) : (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => fetchMutation.mutate({ source: s.name, scope: 'open' })}
-                      disabled={running || fetchMutation.isPending}
-                      className="bg-blue-900 text-white text-sm rounded-md px-3 py-1.5 disabled:opacity-50"
-                    >
-                      Fetch open
-                    </button>
-                    <button
-                      onClick={() => fetchMutation.mutate({ source: s.name, scope: 'full' })}
-                      disabled={running || fetchMutation.isPending}
-                      className="border border-blue-900 text-blue-900 text-sm rounded-md px-3 py-1.5 disabled:opacity-50"
-                    >
-                      Full refresh
-                    </button>
-                    {SOURCES_WITH_RESULTS_REFRESH.has(s.name) && (
+                  user?.role === 'admin' && (
+                    <div className="flex gap-2">
                       <button
-                        onClick={() => fetchMutation.mutate({ source: s.name, scope: 'results' })}
+                        onClick={() => fetchMutation.mutate({ source: s.name, scope: 'open' })}
+                        disabled={running || fetchMutation.isPending}
+                        className="bg-blue-900 text-white text-sm rounded-md px-3 py-1.5 disabled:opacity-50"
+                      >
+                        Fetch open
+                      </button>
+                      <button
+                        onClick={() => fetchMutation.mutate({ source: s.name, scope: 'full' })}
                         disabled={running || fetchMutation.isPending}
                         className="border border-blue-900 text-blue-900 text-sm rounded-md px-3 py-1.5 disabled:opacity-50"
                       >
-                        Refresh awarded results
+                        Full refresh
                       </button>
-                    )}
-                  </div>
+                      {SOURCES_WITH_RESULTS_REFRESH.has(s.name) && (
+                        <button
+                          onClick={() => fetchMutation.mutate({ source: s.name, scope: 'results' })}
+                          disabled={running || fetchMutation.isPending}
+                          className="border border-blue-900 text-blue-900 text-sm rounded-md px-3 py-1.5 disabled:opacity-50"
+                        >
+                          Refresh awarded results
+                        </button>
+                      )}
+                    </div>
+                  )
                 )}
               </div>
             );
