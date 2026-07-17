@@ -123,6 +123,24 @@ describe('register routes', () => {
     expect(res.body.user.role).toBe('member');
   });
 
+  it('passkey/verify returns 409 when an account with that email already exists', async () => {
+    const registerOnce = async () => {
+      const agent = request.agent(app);
+      await agent.post('/api/auth/register/request').send({ name: 'Jane', email: 'jane@example.com' });
+      const otp = email.sent[email.sent.length - 1].text.match(/\d{6}/)?.[0] as string;
+      await agent.post('/api/auth/register/verify-otp').send({ otp });
+      await agent.post('/api/auth/register/passkey/options');
+      return agent.post('/api/auth/register/passkey/verify').send({ response: {} });
+    };
+
+    const first = await registerOnce();
+    expect(first.status).toBe(200);
+
+    const second = await registerOnce();
+    expect(second.status).toBe(409);
+    expect(second.body.error).toBe('an account with that email already exists');
+  });
+
   it('passkey/verify 400s when the WebAuthn ceremony fails and creates no user', async () => {
     webauthn.nextRegistrationResult = { verified: false };
     const agent = request.agent(app);
