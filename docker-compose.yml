@@ -21,8 +21,9 @@ services:
     environment:
       - PORT=3001
       - MONGO_URI=mongodb://mongo:27017/tms
-      - MAILERSEND_API_KEY=${MAILERSEND_API_KEY} # set in your shell or a local .env before `docker compose up`
-      - MAILERSEND_FROM_EMAIL=noreply@example.com
+      - MAILGUN_API_KEY=${MAILGUN_API_KEY} # set in your shell or a local .env before `docker compose up`
+      - MAILGUN_DOMAIN=${MAILGUN_DOMAIN}
+      - MAILGUN_FROM_EMAIL=noreply@example.com
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       - SESSION_SECRET=${SESSION_SECRET}
       - RP_ID=localhost

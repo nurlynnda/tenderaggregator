@@ -1,44 +1,49 @@
 import { describe, expect, it, vi } from 'vitest';
-import { FakeEmailSender, MailerSendEmailSender } from '../../src/auth/emailSender.js';
+import { FakeEmailSender, MailgunEmailSender } from '../../src/auth/emailSender.js';
+import type { MailgunClient } from '../../src/auth/emailSender.js';
 
-describe('MailerSendEmailSender', () => {
-  it('POSTs to the MailerSend API with the right auth header and body', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 202 });
-    const sender = new MailerSendEmailSender('secret-key', 'noreply@example.com', fetchImpl as unknown as typeof fetch);
+function makeFakeMailer(overrides?: Partial<MailgunClient>): MailgunClient {
+  return {
+    messages: { create: vi.fn().mockResolvedValue(undefined) },
+    customMessageLimit: { get: vi.fn().mockResolvedValue({ limit: 3000, current: 5 }) },
+    ...overrides,
+  };
+}
+
+describe('MailgunEmailSender', () => {
+  it('sends via the Mailgun client when under the account send limit', async () => {
+    const mailer = makeFakeMailer();
+    const sender = new MailgunEmailSender('api-key', 'mg.example.com', 'noreply@example.com', mailer);
     await sender.send({ to: 'admin@example.com', subject: 'New registration OTP', text: 'code: 123456' });
 
-    expect(fetchImpl).toHaveBeenCalledWith(
-      'https://api.mailersend.com/v1/email',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Bearer secret-key' }),
-      }),
-    );
-    const body = JSON.parse((fetchImpl.mock.calls[0][1] as RequestInit).body as string);
-    expect(body).toEqual({
-      from: { email: 'noreply@example.com' },
-      to: [{ email: 'admin@example.com' }],
+    expect(mailer.messages.create).toHaveBeenCalledWith('mg.example.com', {
+      from: 'noreply@example.com',
+      to: ['admin@example.com'],
       subject: 'New registration OTP',
       text: 'code: 123456',
     });
   });
 
-  it('throws when MailerSend responds with a non-ok status', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 401, text: async () => '' });
-    const sender = new MailerSendEmailSender('bad-key', 'noreply@example.com', fetchImpl as unknown as typeof fetch);
-    await expect(sender.send({ to: 'a@b.com', subject: 's', text: 't' })).rejects.toThrow('MailerSend request failed: 401');
+  it('hard-stops and does not send once the account send limit is reached', async () => {
+    const mailer = makeFakeMailer({
+      customMessageLimit: { get: vi.fn().mockResolvedValue({ limit: 3000, current: 3000 }) },
+    });
+    const sender = new MailgunEmailSender('api-key', 'mg.example.com', 'noreply@example.com', mailer);
+
+    await expect(sender.send({ to: 'a@b.com', subject: 's', text: 't' })).rejects.toThrow(
+      'Monthly email quota reached. Please try again later.',
+    );
+    expect(mailer.messages.create).not.toHaveBeenCalled();
   });
 
-  it('includes the response body in the error so the actual validation failure is visible', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 422,
-      text: async () => '{"message":"The from.email must be a verified domain."}',
+  it('fails open and still sends if the limit check itself errors', async () => {
+    const mailer = makeFakeMailer({
+      customMessageLimit: { get: vi.fn().mockRejectedValue(new Error('network blip')) },
     });
-    const sender = new MailerSendEmailSender('bad-key', 'noreply@example.com', fetchImpl as unknown as typeof fetch);
-    await expect(sender.send({ to: 'a@b.com', subject: 's', text: 't' })).rejects.toThrow(
-      'MailerSend request failed: 422 - {"message":"The from.email must be a verified domain."}',
-    );
+    const sender = new MailgunEmailSender('api-key', 'mg.example.com', 'noreply@example.com', mailer);
+
+    await sender.send({ to: 'a@b.com', subject: 's', text: 't' });
+    expect(mailer.messages.create).toHaveBeenCalledTimes(1);
   });
 });
 
