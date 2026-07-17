@@ -26,7 +26,7 @@ import type { PendingRegistrationDoc, SessionDoc, UserDoc } from './auth/types.j
 const PORT = Number(process.env.PORT) || 3001;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/tms';
 const MAILERSEND_API_KEY = process.env.MAILERSEND_API_KEY ?? '';
-const MAILERSEND_FROM_EMAIL = process.env.MAILERSEND_FROM_EMAIL ?? 'noreply@example.com';
+const MAILERSEND_FROM_EMAIL = process.env.MAILERSEND_FROM_EMAIL ?? '';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? '';
 const SESSION_SECRET = process.env.SESSION_SECRET ?? '';
 const RP_ID = process.env.RP_ID ?? 'localhost';
@@ -34,8 +34,8 @@ const RP_NAME = process.env.RP_NAME ?? 'Malaysia Tender Aggregator';
 const ORIGIN = process.env.ORIGIN ?? 'http://localhost:5173';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
 
-if (!ADMIN_EMAIL || !SESSION_SECRET || !MAILERSEND_API_KEY) {
-  throw new Error('ADMIN_EMAIL, SESSION_SECRET, and MAILERSEND_API_KEY must be set');
+if (!ADMIN_EMAIL || !SESSION_SECRET || !MAILERSEND_API_KEY || !MAILERSEND_FROM_EMAIL) {
+  throw new Error('ADMIN_EMAIL, SESSION_SECRET, MAILERSEND_API_KEY, and MAILERSEND_FROM_EMAIL must be set');
 }
 
 async function main() {
