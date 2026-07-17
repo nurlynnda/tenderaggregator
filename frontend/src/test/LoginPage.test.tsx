@@ -17,6 +17,7 @@ function renderLoginPage() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<div>register page</div>} />
           <Route path="/" element={<div>home</div>} />
         </Routes>
       </AuthProvider>
@@ -42,5 +43,11 @@ describe('LoginPage', () => {
     await userEvent.type(screen.getByLabelText(/email/i), 'nobody@example.com');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+  });
+
+  it('links to the registration page', async () => {
+    renderLoginPage();
+    await userEvent.click(screen.getByRole('link', { name: /request access|register|sign up/i }));
+    await waitFor(() => expect(screen.getByText('register page')).toBeInTheDocument());
   });
 });

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { getLoginOptions, verifyLogin } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -50,6 +50,9 @@ export default function LoginPage() {
           Sign in with passkey
         </button>
       </form>
+      <p className="text-sm text-gray-600">
+        No account yet? <Link to="/register" className="text-blue-900 font-medium">Request access</Link>
+      </p>
     </div>
   );
 }
