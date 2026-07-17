@@ -17,6 +17,14 @@ services:
     networks:
       - default
       - shared-mongo
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 300M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
 
   tender-aggregator-frontend:
     build:
@@ -30,6 +38,14 @@ services:
     networks:
       - default
       - shared-edge
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 64M
+        reservations:
+          cpus: "0.05"
+          memory: 24M
 
 networks:
   shared-mongo:
