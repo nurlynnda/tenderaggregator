@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     restart: unless-stopped
+    env_file: .env
     environment:
       - PORT=3001
       - MONGO_URI=mongodb://mongo:27017/tms?replicaSet=rs0
