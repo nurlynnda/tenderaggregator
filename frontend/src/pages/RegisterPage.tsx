@@ -60,7 +60,8 @@ export default function RegisterPage() {
       await verifyPasskeyRegistration(response);
       await refresh();
       navigate('/');
-    } catch {
+    } catch (err) {
+      console.error('passkey registration failed:', err);
       setError('Passkey setup failed. Please try again.');
     } finally {
       setPending(false);
