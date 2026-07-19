@@ -316,4 +316,20 @@ describe('TenderRepository', () => {
     expect(awarded).toHaveLength(1);
     expect(awarded[0]!.dedupKey).toBe('A');
   });
+
+  it('findAwarded returns only the fields dashboard stats need, not the full tender record', async () => {
+    const { repo } = freshRepo();
+    await repo.mergeMany([makePatch({
+      dedupKey: 'A', referenceNo: 'A', title: 'Big contract',
+      status: 'closed', ministry: 'MOF', closingDate: '2026-01-01', advertisedDate: '2025-12-01',
+      winners: [{ name: 'X', price: 1 }],
+      raw: { hugeScrapedBlob: 'x'.repeat(10_000) },
+    })]);
+    const awarded = await repo.findAwarded();
+    expect(awarded).toEqual([{
+      dedupKey: 'A', status: 'closed', ministry: 'MOF',
+      closingDate: '2026-01-01', advertisedDate: '2025-12-01',
+      winners: [{ name: 'X', price: 1 }],
+    }]);
+  });
 });

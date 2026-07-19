@@ -21,7 +21,7 @@ export interface AggregationCursorLike<R> {
 
 export interface QueryableCollection<T> {
   findOne(filter: Record<string, unknown>): Promise<T | null>;
-  find(filter: Record<string, unknown>): FindCursorLike<T>;
+  find(filter: Record<string, unknown>, options?: { projection?: Record<string, 0 | 1> }): FindCursorLike<T>;
   replaceOne(
     filter: Record<string, unknown>,
     doc: T,

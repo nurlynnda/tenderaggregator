@@ -88,6 +88,15 @@ function evalExpr(doc: unknown, expr: unknown): unknown {
   return expr;
 }
 
+function applyProjection(doc: unknown, projection: Record<string, 0 | 1>): unknown {
+  const record = doc as Record<string, unknown>;
+  const result: Record<string, unknown> = { _id: record._id };
+  for (const [field, include] of Object.entries(projection)) {
+    if (include === 1) result[field] = record[field];
+  }
+  return result;
+}
+
 export class FakeCollection<T extends { _id: string }> {
   private readonly docs = new Map<string, T>();
 
@@ -100,9 +109,10 @@ export class FakeCollection<T extends { _id: string }> {
     return null;
   }
 
-  find(filter: Filter = {}): { toArray(): Promise<T[]> } {
+  find(filter: Filter = {}, options: { projection?: Record<string, 0 | 1> } = {}): { toArray(): Promise<T[]> } {
     const rows = [...this.docs.values()].filter((doc) => matchesDoc(doc, filter));
-    return { toArray: async () => rows };
+    const projected = options.projection ? rows.map((doc) => applyProjection(doc, options.projection!)) : rows;
+    return { toArray: async () => projected as T[] };
   }
 
   async replaceOne(filter: Filter, doc: T, options: { upsert?: boolean } = {}): Promise<{ upsertedCount: number }> {

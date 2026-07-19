@@ -86,6 +86,13 @@ describe('FakeCollection', () => {
     expect(results.map((d) => d._id)).toEqual(['B']);
   });
 
+  it('find with a projection returns only the requested fields plus _id', async () => {
+    const col = new FakeCollection<Doc>();
+    await col.replaceOne({ _id: 'A' }, doc({ _id: 'A', status: 'closed', ministry: 'MOF' }), { upsert: true });
+    const results = await col.find({}, { projection: { status: 1, ministry: 1 } }).toArray();
+    expect(results).toEqual([{ _id: 'A', status: 'closed', ministry: 'MOF' }]);
+  });
+
   it('find with $or matches any subfilter', async () => {
     const col = new FakeCollection<Doc>();
     await col.replaceOne({ _id: 'A' }, doc({ _id: 'A', ministry: 'X' }), { upsert: true });

@@ -2,6 +2,10 @@ import type { Tender, TenderPatch } from '@tms/shared';
 import type { QueryableCollection, TenderDoc } from './tenderDoc.js';
 import { fromDoc, toDoc } from './tenderDoc.js';
 
+export type AwardedTender = Pick<Tender, 'status' | 'ministry' | 'closingDate' | 'advertisedDate' | 'winners'> & {
+  dedupKey: string;
+};
+
 export interface SourceMetaDoc {
   _id: string;
   lastScrapedAt: string | null;
@@ -44,11 +48,21 @@ export class TenderRepository {
     return doc ? fromDoc(doc) : null;
   }
 
-  async findAwarded(): Promise<Tender[]> {
+  async findAwarded(): Promise<AwardedTender[]> {
     const docs = await this.tenders
-      .find({ status: 'closed', winners: { $ne: null, $not: { $size: 0 } } })
+      .find(
+        { status: 'closed', winners: { $ne: null, $not: { $size: 0 } } },
+        { projection: { status: 1, ministry: 1, closingDate: 1, advertisedDate: 1, winners: 1 } },
+      )
       .toArray();
-    return docs.map(fromDoc);
+    return docs.map((d) => ({
+      dedupKey: d._id,
+      status: d.status,
+      ministry: d.ministry,
+      closingDate: d.closingDate,
+      advertisedDate: d.advertisedDate,
+      winners: d.winners,
+    }));
   }
 
   async hasSource(source: string): Promise<boolean> {

@@ -1,5 +1,7 @@
 import type { Tender } from '@tms/shared';
 
+type AwardableTender = Pick<Tender, 'status' | 'ministry' | 'closingDate' | 'advertisedDate' | 'winners'>;
+
 export interface MinistryStat {
   ministry: string;
   totalValue: number;
@@ -29,7 +31,7 @@ export interface DashboardStats {
   allContractors: ContractorStat[];
 }
 
-function isAwarded(t: Tender): boolean {
+function isAwarded(t: AwardableTender): boolean {
   return t.status === 'closed' && t.winners !== null && t.winners.length > 0;
 }
 
@@ -64,7 +66,7 @@ function canonicalizeContractorName(name: string): string {
 // of stray records that clutter the year breakdown without adding signal.
 const EARLIEST_DASHBOARD_YEAR = 2023;
 
-export function buildDashboardStats(tenders: Tender[]): DashboardStats {
+export function buildDashboardStats(tenders: AwardableTender[]): DashboardStats {
   const awarded = tenders.filter(isAwarded);
 
   let totalAwardedValue = 0;
