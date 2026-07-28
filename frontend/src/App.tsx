@@ -61,6 +61,22 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function SignedInFooter() {
+  const { user, signOut } = useAuth();
+  if (!user) return null;
+  return (
+    <div className="px-4 pt-3 mt-2 border-t border-[#e0e0e0] space-y-1">
+      <div className="text-xs text-gray-500 truncate">{user.email}</div>
+      <button
+        onClick={() => void signOut()}
+        className="text-[12px] font-bold text-blue-900 hover:underline"
+      >
+        Log out
+      </button>
+    </div>
+  );
+}
+
 function AppShell() {
   return (
     <div className="flex flex-col h-screen">
@@ -83,6 +99,7 @@ function AppShell() {
             {useAuth().user?.role === 'admin' && (
               <NavLink to="/admin/users" className={navLinkClass}>Manage users</NavLink>
             )}
+            <SignedInFooter />
           </div>
         </nav>
         <div className="flex-1 flex flex-col overflow-y-auto">

@@ -72,4 +72,13 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Manage users' }));
     expect(await screen.findByRole('heading', { name: 'Manage users' })).toBeInTheDocument(); // once AdminUsersPage's own /api/admin/users call resolves via the default mock handler — this page renders even with an empty/default list
   });
+
+  it('shows the signed-in user\'s email and a Log out button in the sidebar, which signs them out', async () => {
+    server.use(http.get('/api/auth/me', () => HttpResponse.json({ name: 'Jane', email: 'jane@example.com', role: 'member' })));
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('jane@example.com')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: 'Log out' }));
+    await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument()); // redirected to /login
+  });
 });
