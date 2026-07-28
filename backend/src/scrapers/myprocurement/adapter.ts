@@ -44,6 +44,8 @@ export class MyProcurementAdapter implements ScraperAdapter {
 
   async scrape(scope: ScrapeScope, hooks: ScrapeHooks, opts: ScrapeOptions = {}): Promise<void> {
     const jobs = MYPROCUREMENT_JOBS.filter((j) => {
+      // 'archive' scope also sweeps up the daily-results jobs (status is 'closed', no kind
+      // exclusion here) — intentional, harmless overlap with the daily 'open'-scope run, not a bug.
       const inScope = scope === 'all' ? true
         : scope === 'open' ? (j.status === 'open' || j.kind === 'daily-results')
         : j.status === 'closed';
