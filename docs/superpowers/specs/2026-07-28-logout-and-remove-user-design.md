@@ -28,8 +28,8 @@ Add a small block at the bottom of the left sidebar in `frontend/src/App.tsx`, b
 
   Logic:
   1. Look up the target user by `:id`. 404 `{ error: 'user not found' }` if missing.
-  2. If `target._id === req.user._id` (the requesting admin), 400 `{ error: 'cannot remove your own account' }`.
-  3. If `target.role === 'admin'` and `countByRole('admin') <= 1`, 409 `{ error: 'cannot remove the last remaining admin' }` (mirrors the existing demote-last-admin rule).
+  2. If `target.role === 'admin'` and `countByRole('admin') <= 1`, 409 `{ error: 'cannot remove the last remaining admin' }` (mirrors the existing demote-last-admin rule). This check runs before the self-delete check below, so a lone admin removing themselves gets this more informative error rather than the generic self-delete one.
+  3. If `target._id === req.user._id` (the requesting admin), 400 `{ error: 'cannot remove your own account' }`.
   4. Otherwise: `sessions.deleteByUserId(target._id)`, then `users.delete(target._id)`, respond `200 { ok: true }`.
 
   `req.user` is available because `AuthedRequest` (from `middleware.ts`) attaches it during `requireAuth`.

@@ -278,7 +278,7 @@ Now append these tests:
     );
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     let deletedId: string | undefined;
-    server.use(http.delete('/api/admin/users/2', ({ params }) => {
+    server.use(http.delete('/api/admin/users/:id', ({ params }) => {
       deletedId = params.id as string;
       return HttpResponse.json({ ok: true });
     }));
@@ -320,17 +320,21 @@ Now append these tests:
       http.get('/api/admin/users', () => HttpResponse.json({
         users: [
           { id: '1', name: 'Admin', email: 'admin@example.com', role: 'admin', createdAt: '2026-07-01T00:00:00.000Z' },
+          // A second admin as the removal target — the signed-in admin's own row never
+          // shows a Remove button (see the test below), so the 409 case must be tested
+          // against a different row.
+          { id: '2', name: 'Admin2', email: 'admin2@example.com', role: 'admin', createdAt: '2026-07-01T00:00:00.000Z' },
         ],
       })),
     );
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    server.use(http.delete('/api/admin/users/1', () =>
+    server.use(http.delete('/api/admin/users/2', () =>
       HttpResponse.json({ error: 'cannot remove the last remaining admin' }, { status: 409 }),
     ));
 
     renderPage();
-    await waitFor(() => expect(screen.getByText('admin@example.com')).toBeInTheDocument());
-    await userEvent.click(screen.getByRole('button', { name: /remove admin@example\.com/i }));
+    await waitFor(() => expect(screen.getByText('admin2@example.com')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: /remove admin2@example\.com/i }));
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/cannot remove the last remaining admin/i));
   });
