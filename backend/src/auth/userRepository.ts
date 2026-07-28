@@ -45,4 +45,8 @@ export class UserRepository {
     if (!doc) throw new Error(`user not found: ${id}`);
     await this.collection.replaceOne({ _id: id }, { ...doc, credential: { ...doc.credential, counter } });
   }
+
+  async delete(id: string): Promise<void> {
+    await this.collection.deleteOne({ _id: id });
+  }
 }

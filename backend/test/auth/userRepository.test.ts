@@ -47,3 +47,10 @@ describe('UserRepository', () => {
     expect((await repo.findById(created._id))?.credential.counter).toBe(7);
   });
 });
+
+  it('delete removes the user', async () => {
+    const repo = new UserRepository(new FakeCollection<UserDoc>());
+    const created = await repo.create({ name: 'A', email: 'a@example.com', role: 'member', credential });
+    await repo.delete(created._id);
+    expect(await repo.findById(created._id)).toBeNull();
+});
