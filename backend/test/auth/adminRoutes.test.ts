@@ -83,4 +83,52 @@ describe('admin routes', () => {
     expect((await adminAgent.patch('/api/admin/users/nope/role').send({ role: 'member' })).status).toBe(404);
     expect((await adminAgent.patch(`/api/admin/users/${admin._id}/role`).send({ role: 'superadmin' })).status).toBe(400);
   });
+
+  it('DELETE /users/:id removes a member and their sessions', async () => {
+    const admin = await users.create({ name: 'Admin', email: 'admin@example.com', role: 'admin', credential });
+    const member = await users.create({ name: 'Member', email: 'member@example.com', role: 'member', credential });
+    const memberSession = await sessions.create(member._id, 1000 * 60 * 60);
+    const adminAgent = await agentAs(admin._id);
+
+    const res = await adminAgent.delete(`/api/admin/users/${member._id}`);
+    expect(res.status).toBe(200);
+    expect(await users.findById(member._id)).toBeNull();
+    expect(await sessions.findById(memberSession._id)).toBeNull();
+  });
+
+  it('DELETE /users/:id 404s for an unknown user', async () => {
+    const admin = await users.create({ name: 'Admin', email: 'admin@example.com', role: 'admin', credential });
+    const adminAgent = await agentAs(admin._id);
+    expect((await adminAgent.delete('/api/admin/users/nope')).status).toBe(404);
+  });
+
+  it('DELETE /users/:id refuses to remove the last remaining admin, even if it is your own account', async () => {
+    const admin = await users.create({ name: 'Admin', email: 'admin@example.com', role: 'admin', credential });
+    const adminAgent = await agentAs(admin._id);
+
+    const res = await adminAgent.delete(`/api/admin/users/${admin._id}`);
+    expect(res.status).toBe(409);
+    expect(await users.findById(admin._id)).not.toBeNull();
+  });
+
+  it('DELETE /users/:id refuses to remove your own account when another admin remains', async () => {
+    const admin1 = await users.create({ name: 'Admin1', email: 'admin1@example.com', role: 'admin', credential });
+    await users.create({ name: 'Admin2', email: 'admin2@example.com', role: 'admin', credential });
+    const admin1Agent = await agentAs(admin1._id);
+
+    const res = await admin1Agent.delete(`/api/admin/users/${admin1._id}`);
+    expect(res.status).toBe(400);
+    expect(await users.findById(admin1._id)).not.toBeNull();
+  });
+
+  it('DELETE /users/:id allows removing another admin when a third admin remains', async () => {
+    const admin1 = await users.create({ name: 'Admin1', email: 'admin1@example.com', role: 'admin', credential });
+    const admin2 = await users.create({ name: 'Admin2', email: 'admin2@example.com', role: 'admin', credential });
+    await users.create({ name: 'Admin3', email: 'admin3@example.com', role: 'admin', credential });
+    const admin1Agent = await agentAs(admin1._id);
+
+    const res = await admin1Agent.delete(`/api/admin/users/${admin2._id}`);
+    expect(res.status).toBe(200);
+    expect(await users.findById(admin2._id)).toBeNull();
+  });
 });
