@@ -115,3 +115,14 @@ export async function updateUserRole(id: string, role: Role): Promise<AdminUser>
   }
   return res.json() as Promise<AdminUser>;
 }
+
+export async function deleteUser(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const message = await res
+      .json()
+      .then((body: { error?: string }) => body?.error)
+      .catch(() => undefined);
+    throw new Error(message ?? `remove user failed: ${res.status}`);
+  }
+}
