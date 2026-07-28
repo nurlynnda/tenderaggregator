@@ -36,4 +36,15 @@ describe('SessionRepository', () => {
     await repo.delete(session._id);
     expect(await repo.findById(session._id)).toBeNull();
   });
+
+  it('deleteByUserId removes every session for that user but leaves other users\' sessions', async () => {
+    const repo = new SessionRepository(new FakeCollection<SessionDoc>(), () => new Date('2026-07-17T00:00:00.000Z'));
+    const s1 = await repo.create('user-1', 1000);
+    const s2 = await repo.create('user-1', 1000);
+    const s3 = await repo.create('user-2', 1000);
+    await repo.deleteByUserId('user-1');
+    expect(await repo.findById(s1._id)).toBeNull();
+    expect(await repo.findById(s2._id)).toBeNull();
+    expect(await repo.findById(s3._id)).toEqual(s3);
+  });
 });
