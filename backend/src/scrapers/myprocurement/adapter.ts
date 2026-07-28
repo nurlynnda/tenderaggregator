@@ -15,6 +15,8 @@ export const MYPROCUREMENT_JOBS = [
   { status: 'closed', procurementType: 'requisition', type: 'archive', category: 'advertisement-requisition', kind: 'full' },
   { status: 'closed', procurementType: 'quotation', type: 'archive', category: 'results-quotation', kind: 'results' },
   { status: 'closed', procurementType: 'tender', type: 'archive', category: 'results-tender', kind: 'results' },
+  { status: 'closed', procurementType: 'quotation', type: 'results', category: 'quotation', kind: 'daily-results' },
+  { status: 'closed', procurementType: 'tender', type: 'results', category: 'tender', kind: 'daily-results' },
 ] as const;
 
 const ListingResponse = z.object({ html: z.string(), lastPage: z.number().int().min(1) });
@@ -22,7 +24,9 @@ const ListingResponse = z.object({ html: z.string(), lastPage: z.number().int().
 type MyProcurementJob = (typeof MYPROCUREMENT_JOBS)[number];
 
 function jobName(job: MyProcurementJob): string {
-  return job.kind === 'results' ? `${job.status}-${job.procurementType}-results` : `${job.status}-${job.procurementType}`;
+  if (job.kind === 'results') return `${job.status}-${job.procurementType}-results`;
+  if (job.kind === 'daily-results') return `${job.procurementType}-keputusan`;
+  return `${job.status}-${job.procurementType}`;
 }
 
 export class MyProcurementAdapter implements ScraperAdapter {
@@ -31,18 +35,20 @@ export class MyProcurementAdapter implements ScraperAdapter {
   constructor(private readonly fetcher: (url: string) => Promise<unknown>) {}
 
   archiveJobNames(): string[] {
-    return MYPROCUREMENT_JOBS.filter((j) => j.status === 'closed').map(jobName);
+    return MYPROCUREMENT_JOBS.filter((j) => j.status === 'closed' && j.kind !== 'daily-results').map(jobName);
   }
 
   resultsJobNames(): string[] {
-    return MYPROCUREMENT_JOBS.filter((j) => j.kind === 'results').map(jobName);
+    return [];
   }
 
   async scrape(scope: ScrapeScope, hooks: ScrapeHooks, opts: ScrapeOptions = {}): Promise<void> {
     const jobs = MYPROCUREMENT_JOBS.filter((j) => {
-      const inScope = scope === 'all' ? true : scope === 'open' ? j.status === 'open' : j.status === 'closed';
+      const inScope = scope === 'all' ? true
+        : scope === 'open' ? (j.status === 'open' || j.kind === 'daily-results')
+        : j.status === 'closed';
       if (!inScope) return false;
-      if (j.status === 'closed' && opts.skipJobNames?.has(jobName(j))) return false; // already backfilled
+      if (j.status === 'closed' && j.kind !== 'daily-results' && opts.skipJobNames?.has(jobName(j))) return false; // already backfilled
       return true;
     });
 
@@ -64,7 +70,7 @@ export class MyProcurementAdapter implements ScraperAdapter {
           currentPage: page,
           lastPage,
         });
-        const patches = job.kind === 'results'
+        const patches = job.kind === 'results' || job.kind === 'daily-results'
           ? parseResultsHtml(body.html, { procurementType: job.procurementType })
           : parseListingHtml(body.html, { status: job.status, procurementType: job.procurementType });
         await hooks.onBatch(patches);
