@@ -10,7 +10,7 @@ import { useAuth } from '../auth/AuthContext';
 // Manually maintained, not derived from each adapter's resultsJobNames() — if a source's
 // resultsJobNames() changes (added, removed, or renamed), this set must be updated to match,
 // or the button will be hidden when it shouldn't be, or shown and 409 when clicked.
-const SOURCES_WITH_RESULTS_REFRESH = new Set(['myprocurement', 'kwsp', 'llm']);
+const SOURCES_WITH_RESULTS_REFRESH = new Set(['kwsp', 'llm']);
 
 export default function SettingsPage() {
   const { user } = useAuth();
