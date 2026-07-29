@@ -42,7 +42,7 @@ export default function SettingsPage() {
           {(sources ?? []).map((s) => {
             const isRunningThis = running && status?.source === s.name;
             return (
-              <div key={s.name} role="group" aria-label={s.name} className="p-4 flex items-center justify-between gap-4">
+              <div key={s.name} role="group" aria-label={s.name} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <div className="font-medium capitalize">{formatSourceLabel(s.name)}</div>
                   <div className="text-xs text-gray-500">
@@ -73,7 +73,7 @@ export default function SettingsPage() {
                   )
                 ) : (
                   user?.role === 'admin' && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => fetchMutation.mutate({ source: s.name, scope: 'open' })}
                         disabled={running || fetchMutation.isPending}

@@ -32,7 +32,7 @@ export default function AdminUsersPage() {
       {error && <div role="alert" className="text-sm text-red-700">{error}</div>}
       <div className="border border-[#e0e0e0] rounded-lg divide-y">
         {(users ?? []).map((u) => (
-          <div key={u.id} className="p-4 flex items-center justify-between gap-4">
+          <div key={u.id} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="font-medium">{u.name}</div>
               <div className="text-xs text-gray-500">
