@@ -66,12 +66,12 @@ describe('SettingsPage', () => {
     await waitFor(() => expect(seenBody).toEqual({ source: 'myprocurement', scope: 'full' }));
   });
 
-  it('shows a Refresh awarded results button for myprocurement and kwsp, not for span', async () => {
+  it('shows a Refresh awarded results button for kwsp, not for myprocurement or span', async () => {
     renderSettings();
-    const mpRow = await screen.findByRole('group', { name: 'myprocurement' });
-    expect(within(mpRow).getByRole('button', { name: /refresh awarded results/i })).toBeInTheDocument();
-    const kwspRow = screen.getByRole('group', { name: 'kwsp' });
+    const kwspRow = await screen.findByRole('group', { name: 'kwsp' });
     expect(within(kwspRow).getByRole('button', { name: /refresh awarded results/i })).toBeInTheDocument();
+    const mpRow = screen.getByRole('group', { name: 'myprocurement' });
+    expect(within(mpRow).queryByRole('button', { name: /refresh awarded results/i })).not.toBeInTheDocument();
     const spanRow = screen.getByRole('group', { name: 'span' });
     expect(within(spanRow).queryByRole('button', { name: /refresh awarded results/i })).not.toBeInTheDocument();
   });
@@ -83,9 +83,9 @@ describe('SettingsPage', () => {
       return HttpResponse.json({ started: true }, { status: 202 });
     }));
     renderSettings();
-    const mpRow = await screen.findByRole('group', { name: 'myprocurement' });
-    await userEvent.click(within(mpRow).getByRole('button', { name: /refresh awarded results/i }));
-    await waitFor(() => expect(seenBody).toEqual({ source: 'myprocurement', scope: 'results' }));
+    const kwspRow = await screen.findByRole('group', { name: 'kwsp' });
+    await userEvent.click(within(kwspRow).getByRole('button', { name: /refresh awarded results/i }));
+    await waitFor(() => expect(seenBody).toEqual({ source: 'kwsp', scope: 'results' }));
   });
 
   it('disables Refresh awarded results while any row is running', async () => {
@@ -93,8 +93,8 @@ describe('SettingsPage', () => {
       state: 'running', source: 'span', job: 'open-2026', jobsCompleted: 0, jobsTotal: 1, currentPage: 1, lastPage: 1,
     })));
     renderSettings();
-    const mpRow = await screen.findByRole('group', { name: 'myprocurement' });
-    expect(within(mpRow).getByRole('button', { name: /refresh awarded results/i })).toBeDisabled();
+    const kwspRow = await screen.findByRole('group', { name: 'kwsp' });
+    expect(within(kwspRow).getByRole('button', { name: /refresh awarded results/i })).toBeDisabled();
   });
 
   it("shows progress and a Cancel button on the running source's row, and disables every other row's buttons", async () => {
@@ -145,7 +145,7 @@ describe('SettingsPage', () => {
     const spanRow = await screen.findByRole('group', { name: 'span' });
     expect(within(spanRow).queryByRole('button', { name: /fetch open/i })).not.toBeInTheDocument();
     expect(within(spanRow).queryByRole('button', { name: /full refresh/i })).not.toBeInTheDocument();
-    const mpRow = screen.getByRole('group', { name: 'myprocurement' });
-    expect(within(mpRow).queryByRole('button', { name: /refresh awarded results/i })).not.toBeInTheDocument();
+    const kwspRow = screen.getByRole('group', { name: 'kwsp' });
+    expect(within(kwspRow).queryByRole('button', { name: /refresh awarded results/i })).not.toBeInTheDocument();
   });
 });

@@ -6,3 +6,4 @@ backend/data/
 .env
 .playwright-mcp/
 snap2.yml
+.superpowers/

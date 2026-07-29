@@ -33,4 +33,9 @@ export class SessionRepository {
   async delete(id: string): Promise<void> {
     await this.collection.deleteOne({ _id: id });
   }
+
+  async deleteByUserId(userId: string): Promise<void> {
+    const docs = await this.collection.find({ userId }).toArray();
+    for (const doc of docs) await this.collection.deleteOne({ _id: doc._id });
+  }
 }

@@ -35,7 +35,7 @@ export default function DashboardPage() {
   const maxYearCount = Math.max(0, ...data.byYear.map((y) => y.count));
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="space-y-6">
       <h1 className="font-semibold text-lg">Dashboard</h1>
 
       <section className="flex flex-wrap gap-4">
