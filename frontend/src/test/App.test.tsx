@@ -81,4 +81,27 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Log out' }));
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument()); // redirected to /login
   });
+
+  it('shows a hamburger button; clicking it opens the mobile nav backdrop, clicking the backdrop closes it', async () => {
+    render(<App />);
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+    expect(screen.queryByTestId('nav-backdrop')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /toggle navigation menu/i }));
+    expect(screen.getByTestId('nav-backdrop')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId('nav-backdrop'));
+    expect(screen.queryByTestId('nav-backdrop')).not.toBeInTheDocument();
+  });
+
+  it('closes the mobile nav drawer after navigating via a nav link', async () => {
+    render(<App />);
+    await screen.findByText('MENYELENGGARA PERALATAN MAKMAL');
+    await userEvent.click(screen.getByRole('button', { name: /toggle navigation menu/i }));
+    expect(screen.getByTestId('nav-backdrop')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('link', { name: 'Settings' }));
+    expect(await screen.findByText('Data Sources')).toBeInTheDocument();
+    expect(screen.queryByTestId('nav-backdrop')).not.toBeInTheDocument();
+  });
 });

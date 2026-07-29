@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import DetailPage from './pages/DetailPage';
 import MinistryDetailPage from './pages/MinistryDetailPage';
@@ -31,6 +32,14 @@ function SettingsIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function HamburgerIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
     </svg>
   );
 }
@@ -78,11 +87,38 @@ function SignedInFooter() {
 }
 
 function AppShell() {
+  const [isNavOpen, setIsNavOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setIsNavOpen(false);
+  }, [location.pathname]);
+
   return (
     <div className="flex flex-col h-screen">
-      <header className="w-full bg-blue-900 text-white px-6 py-6 flex items-center justify-end shrink-0" />
-      <div className="flex flex-1 overflow-hidden">
-        <nav className="w-56 shrink-0 bg-white border-r border-[#e0e0e0] p-4 pt-[22px] flex flex-col overflow-y-auto">
+      <header className="w-full bg-blue-900 text-white px-6 py-6 flex items-center justify-between md:justify-end shrink-0">
+        <button
+          type="button"
+          onClick={() => setIsNavOpen((open) => !open)}
+          aria-label="Toggle navigation menu"
+          className="md:hidden text-white"
+        >
+          <HamburgerIcon />
+        </button>
+      </header>
+      <div className="flex flex-1 overflow-hidden relative">
+        {isNavOpen && (
+          <div
+            data-testid="nav-backdrop"
+            className="fixed inset-0 z-30 bg-black/40 md:hidden"
+            onClick={() => setIsNavOpen(false)}
+          />
+        )}
+        <nav
+          className={`fixed inset-y-0 left-0 z-40 w-56 shrink-0 bg-white border-r border-[#e0e0e0] p-4 pt-[22px] flex flex-col overflow-y-auto transition-transform duration-200 md:static md:translate-x-0 ${
+            isNavOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
           <div className="flex items-center gap-2 mb-4">
             <img src="/favicon.png" alt="" className="w-12 h-12 shrink-0" />
             <div className="text-hero font-semibold text-blue-900">Malaysia Tender Aggregator</div>
